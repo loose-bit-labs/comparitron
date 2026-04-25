@@ -1,0 +1,11 @@
+node_modules/
+results/
+*.log
+/e
+/q
+/*.sh
+/request.json
+/out-*.txt
+/.a
+/hi.json
+/docs/reports/*.txt

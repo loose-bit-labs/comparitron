@@ -1,0 +1,12 @@
+[
+  {
+    "id": "async_concurrency",
+    "prompt": "Write a Node.js async function called withConcurrency(tasks, limit) that executes an array of zero-argument async functions with a maximum concurrency of limit. Return all results in the original array order. Do not use any external libraries. Include a brief usage example.",
+    "evalHint": "Must preserve result order, respect concurrency limit, use no external deps, handle per-task rejections without killing the pool"
+  },
+  {
+    "id": "deep_merge",
+    "prompt": "Write a Node.js function deepMerge(...objects) that recursively merges multiple plain objects. Arrays should be concatenated not overwritten. Later objects take priority for scalar values. Do not mutate any input objects. Include examples showing nested merge and array concatenation.",
+    "evalHint": "Handles nested objects, concatenates arrays, scalar precedence correct, inputs not mutated"
+  }
+]

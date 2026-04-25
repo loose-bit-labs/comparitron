@@ -1,0 +1,11 @@
+{
+  "name": "comparitron",
+  "version": "0.1.0",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node comparitron.js",
+    "run": "node comparitron.js run",
+    "jury": "node comparitron.js jury",
+    "report": "node comparitron.js report"
+  }
+}

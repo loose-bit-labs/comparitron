@@ -1,0 +1,12 @@
+[
+  {
+    "id": "project_extract",
+    "prompt": "Extract information from the text below and return ONLY valid JSON matching this exact schema. No markdown fences, no explanation — just the raw JSON object.\n\nSchema: {\"name\": string, \"language\": string, \"status\": \"active\"|\"archived\"|\"unknown\", \"tags\": string[], \"year\": number|null}\n\nText: \"Grimoire is a knowledge graph system I've been building since April 2026 in Node.js. It uses vectra for vector search and a JSON flat-file graph as its backing store. Still actively developed — just added an MCP server bridge this week. Core tools: oracle (search), scribe (write), crawl (NER), pathfind (graph traversal).\"",
+    "evalHint": "Must be valid JSON only. name=Grimoire, language=Node.js, status=active, tags should be relevant, year=2026. No extra fields, no markdown wrapping."
+  },
+  {
+    "id": "multi_entity",
+    "prompt": "Extract ALL people mentioned in the text below and return ONLY a JSON array of objects. Schema per object: {\"name\": string, \"role\": string|null, \"sentiment\": \"positive\"|\"negative\"|\"neutral\"}. No markdown, no explanation — raw JSON array only.\n\nText: \"The project was originally built by Sarah Chen, who left the company in 2023. Marcus took it over and has been doing a solid job keeping things stable, though he's been reluctant to add new features. The VP of Engineering, Diane, has been pressuring the team to modernize the stack, which is causing some friction.\"",
+    "evalHint": "Must find all 3 people: Sarah (left=neutral or negative), Marcus (solid job=positive), Diane (pressure/friction=negative or neutral). Valid JSON array only."
+  }
+]

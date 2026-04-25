@@ -1,0 +1,12 @@
+[
+  {
+    "id": "code_summary",
+    "prompt": "Summarize what this code does in exactly 3 bullet points. Each bullet must be 15 words or fewer. No preamble, no explanation — just the 3 bullets.\n\n```js\nasync function withConcurrency(tasks, limit) {\n  const results = new Array(tasks.length)\n  const executing = new Set()\n  for (let i = 0; i < tasks.length; i++) {\n    const idx = i\n    const p = tasks[idx]().then(r => { results[idx] = r })\n    executing.add(p)\n    p.finally(() => executing.delete(p))\n    if (executing.size >= limit) await Promise.race(executing)\n  }\n  await Promise.all(executing)\n  return results\n}\n```",
+    "evalHint": "Must be exactly 3 bullets, each <=15 words, no preamble. Should cover: concurrency limiting, order preservation, async task execution."
+  },
+  {
+    "id": "incident_summary",
+    "prompt": "Summarize this incident report in exactly 3 bullet points. Each bullet must be 15 words or fewer. No preamble — just the 3 bullets.\n\nIncident: On April 15th at 14:32 UTC, the payment service began returning 503 errors for approximately 23% of requests. The on-call engineer identified elevated database connection pool exhaustion as the immediate cause. Root cause analysis revealed a recently deployed config change had reduced the connection pool size from 100 to 10 by mistake. The change was reverted at 15:07 UTC, restoring normal operation. Total user impact: 35 minutes, approximately 12,000 failed transactions.",
+    "evalHint": "Exactly 3 bullets, <=15 words each, no preamble. Should cover: what happened, root cause, resolution and impact."
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "train_meeting",
+    "prompt": "Train A leaves City X at 8:00 AM traveling at 60 mph toward City Y. Train B leaves City Y at 9:00 AM traveling at 90 mph toward City X. The cities are 300 miles apart. At what time do the trains meet, and how far from City X is the meeting point? Show your work step by step.",
+    "evalHint": "Correct answer: 10:36 AM, 156 miles from City X. Must show work clearly.",
+    "answer": "10:36 AM, 156 miles from City X"
+  },
+  {
+    "id": "rollback_postmortem",
+    "prompt": "A team ships a feature on Monday. Tuesday: error rates spike 40%. Wednesday: they roll back — but errors stay elevated. Thursday: they discover a background migration job started by the feature is still running and corrupting a shared cache. Friday: job killed, errors normalize. What was the true root cause? What specific process failure allowed it to persist for 3 days after rollback? Be precise.",
+    "evalHint": "Root cause: background job not included in rollback scope. Process failure: rollback procedure had no inventory of async side effects / no checklist for background jobs spawned by feature deploys. Should reason causally, not just retell the story."
+  }
+]

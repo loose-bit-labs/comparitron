@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Comparitron</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #21262d;
+  --text: #c9d1d9;
+  --muted: #6e7681;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --yellow: #d29922;
+  --red: #da3633;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; line-height: 1.5; }
+a { color: var(--accent); text-decoration: none; }
+
+header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 20px;
+}
+header h1 { font-size: 16px; letter-spacing: 3px; color: var(--accent); }
+.stat { color: var(--muted); font-size: 11px; }
+.stat b { color: var(--text); font-weight: 600; }
+#pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green); margin-left: auto;
+  transition: background 0.3s;
+}
+#pulse.stale { background: var(--muted); }
+
+main { padding: 24px; display: flex; flex-direction: column; gap: 40px; max-width: 1400px; }
+
+section h2 {
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+
+table { border-collapse: collapse; width: 100%; }
+th {
+  color: var(--muted); font-weight: 500; font-size: 11px;
+  padding: 6px 10px; text-align: right; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+th:first-child { text-align: left; }
+th:hover { color: var(--text); }
+th.asc::after  { content: ' ↑'; color: var(--accent); }
+th.desc::after { content: ' ↓'; color: var(--accent); }
+td {
+  padding: 6px 10px; text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td:first-child { text-align: left; }
+tr:hover td { background: var(--surface); }
+
+.score { font-weight: 700; }
+.score.hi  { color: var(--green); }
+.score.mid { color: var(--yellow); }
+.score.lo  { color: var(--red); }
+.null { color: var(--muted); }
+.delta-pos { color: var(--red); }
+.delta-neg { color: var(--green); }
+.delta-zero { color: var(--muted); }
+
+/* matrix */
+.matrix-wrap { overflow-x: auto; }
+.matrix-table th, .matrix-table td {
+  text-align: center; min-width: 56px; padding: 5px 6px; font-size: 11px;
+}
+.matrix-table th:first-child { text-align: left; min-width: 160px; }
+.matrix-table td:first-child { text-align: left; }
+.self-cell { opacity: 0.45; }
+.heat { color: var(--bg); font-weight: 600; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>COMPARITRON</h1>
+  <div class="stat">responses: <b id="s-resp">—</b></div>
+  <div class="stat">scores: <b id="s-scores">—</b></div>
+  <div class="stat" id="s-updated">—</div>
+  <div id="pulse" class="stale"></div>
+</header>
+<main>
+  <section>
+    <h2>Rankings</h2>
+    <div id="rankings"></div>
+  </section>
+  <section>
+    <h2>Jury Matrix <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">(row=candidate, col=juror)</span></h2>
+    <div class="matrix-wrap" id="matrix"></div>
+  </section>
+</main>
+
+<script>
+let data = null
+let sortCol = 'peer'
+let sortDir = -1  // -1 = desc
+
+function scoreClass(v, max) {
+  if (v == null) return 'null'
+  const r = v / max
+  return r >= 0.9 ? 'hi' : r >= 0.7 ? 'mid' : 'lo'
+}
+
+function heatBg(v) {
+  if (v == null) return ''
+  // 1-5 scale: red → yellow → green
+  const t = (v - 1) / 4
+  const r = Math.round(255 * (1 - t) + 40 * t)
+  const g = Math.round(80 * (1 - t) + 185 * t)
+  const b = Math.round(50 * (1 - t) + 80 * t)
+  return `background:rgb(${r},${g},${b})`
+}
+
+function fmt(v, decimals = 1) {
+  return v != null ? v.toFixed(decimals) : '—'
+}
+
+function renderRankings() {
+  const { rows, scenarios, maxScore } = data
+  const sorted = [...rows].sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol]
+    if (sortCol === 'speed') { va = a.avgSpeed; vb = b.avgSpeed }
+    if (va == null) return 1
+    if (vb == null) return -1
+    return (va - vb) * sortDir
+  })
+
+  const cols = [
+    { key: 'model',  label: 'Model',  align: 'left' },
+    { key: 'peer',   label: 'Score'  },
+    { key: 'speed',  label: 't/s'    },
+    ...scenarios.map((s, i) => ({ key: `sc${i}`, label: s.slice(0, 8) })),
+    { key: 'votes',  label: 'Votes'  },
+    { key: 'delta',  label: 'Self Δ' },
+  ]
+
+  const ths = cols.map(c => {
+    const cls = sortCol === c.key ? (sortDir === -1 ? 'desc' : 'asc') : ''
+    return `<th class="${cls}" data-col="${c.key}">${c.label}</th>`
+  }).join('')
+
+  const trs = sorted.map(r => {
+    const sc = scoreClass(r.peer, maxScore)
+    const score = `<td><span class="score ${sc}">${fmt(r.peer)}</span></td>`
+    const speed = `<td class="${r.avgSpeed == null ? 'null' : ''}">${r.avgSpeed ?? '—'}</td>`
+    const sceneTds = r.sceneCols.map(v => {
+      const c = scoreClass(v, maxScore / scenarios.length * scenarios.length)
+      return `<td class="${v == null ? 'null' : ''}">${fmt(v)}</td>`
+    }).join('')
+    const d = r.delta
+    const dClass = d == null ? 'null' : Math.abs(d) < 0.2 ? 'delta-zero' : d > 0 ? 'delta-pos' : 'delta-neg'
+    const dStr = d != null ? (d >= 0 ? '+' : '') + d.toFixed(1) : '—'
+    return `<tr>
+      <td>${r.model}</td>
+      ${score}${speed}${sceneTds}
+      <td>${r.votes}</td>
+      <td class="${dClass}">${dStr}</td>
+    </tr>`
+  }).join('')
+
+  const table = `<table id="rank-table">
+    <thead><tr>${ths}</tr></thead>
+    <tbody>${trs}</tbody>
+  </table>`
+  document.getElementById('rankings').innerHTML = table
+
+  document.querySelectorAll('#rank-table th').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col
+      if (sortCol === col) sortDir *= -1
+      else { sortCol = col; sortDir = -1 }
+      renderRankings()
+    })
+  })
+}
+
+function renderMatrix() {
+  const { models, matrix } = data
+
+  const ths = ['<th>↓cand / juror→</th>', ...models.map(m => `<th>${m.split(':')[0]}</th>`)].join('')
+
+  const trs = models.map(candidate => {
+    const tds = models.map(juror => {
+      const v = matrix[candidate]?.[juror]
+      const isSelf = candidate === juror
+      const style = v != null ? heatBg(v) : ''
+      const cls = [isSelf ? 'self-cell' : '', v != null ? 'heat' : 'null'].filter(Boolean).join(' ')
+      return `<td class="${cls}" style="${style}">${fmt(v)}</td>`
+    }).join('')
+    return `<tr><td>${candidate}</td>${tds}</tr>`
+  }).join('')
+
+  document.getElementById('matrix').innerHTML = `<table class="matrix-table">
+    <thead><tr>${ths}</tr></thead>
+    <tbody>${trs}</tbody>
+  </table>`
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/summary')
+    if (!res.ok) throw new Error(res.status)
+    data = await res.json()
+
+    document.getElementById('s-resp').textContent = data.responseCount
+    document.getElementById('s-scores').textContent = data.scoreCount
+    document.getElementById('s-updated').textContent = new Date().toLocaleTimeString()
+    document.getElementById('pulse').classList.remove('stale')
+    setTimeout(() => document.getElementById('pulse').classList.add('stale'), 1000)
+
+    renderRankings()
+    renderMatrix()
+  } catch (e) {
+    console.error('refresh failed', e)
+  }
+}
+
+refresh()
+setInterval(refresh, 5000)
+</script>
+</body>
+</html>

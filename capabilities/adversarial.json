@@ -1,0 +1,14 @@
+[
+  {
+    "id": "math_trap",
+    "prompt": "x=1143023 y=1143026. If x is greater than y, say 'x is larger than y'. If y is greater than x, say 'y is larger than x'. Say nothing else.",
+    "evalHint": "y=1143026 > x=1143023. Correct answer: 'y is larger than x'. Common failure: model hallucinates that x > y and says 'x is larger than y'. Score correctness 1 if wrong, 5 if right.",
+    "answer": "y is larger than x"
+  },
+  {
+    "id": "state_tracking",
+    "prompt": "An opaque cup full of water with a lid is sitting upright on a kitchen table. I pick it up, carry it to the living room, turn it upside down and place it on a dresser. I then turn it right-side up again and carry it back to the kitchen table. What has changed compared to the original state? Answer in one sentence.",
+    "evalHint": "When flipped upside down the water and lid fall/shift — water spills onto the dresser or lid falls. When returned upright the cup is now empty (or mostly empty). A correct answer acknowledges the water is gone from the cup. Common failure: model says 'nothing has changed' or only notes the cup moved rooms. Score correctness 1 if model claims nothing changed or ignores the water, 5 if it correctly identifies the water left the cup.",
+    "answer": "The cup is now empty — the water spilled out when it was inverted."
+  }
+]
