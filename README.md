@@ -2,7 +2,11 @@
 
 A local LLM benchmark tool. Run a set of prompts across multiple Ollama models, score the responses with a jury of peer models, and watch the leaderboard update in real time.
 
-![Comparitron screenshot](docs/images/comparitron-Screenshot_20260424_231638.png)
+![Comparitron screenshot](docs/images/comparitron-Screenshot_20260425_233203.png)
+
+| | | |
+|---|---|---|
+| ![Robot race](docs/images/comparitron-race.png) | ![Gladiatorial combat](docs/images/comparitron-gladiators.png) | ![Victory podium](docs/images/comparitron-podium.png) |
 
 ## Hardware configurations
 
