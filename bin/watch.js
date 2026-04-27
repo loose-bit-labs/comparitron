@@ -62,6 +62,9 @@ function render() {
     ].join('  '))
   }
 
+  lines.push('')
+  lines.push(DIM + `Score max: ${data.maxScore}  Votes=total jury evaluations  —=no data  *=incomplete prompt coverage  SelfΔ=self_score−peer_score` + RESET)
+
   process.stdout.write(lines.join('\n') + '\n')
 }
 

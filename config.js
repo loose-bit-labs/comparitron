@@ -24,7 +24,16 @@ module.exports = {
 	'qwen3.6:27b',
 	'qwen3.5:9b',
   ],
-  capabilities: ['coding', 'reasoning', 'structured', 'summary', 'adversarial'],
+  capabilities: ['coding', 'reasoning', 'structured', 'summary', 'adversarial', 'archaeology', 'synthesis'],
+  weights: {
+    correctness: 8,
+    instruction_following: 4,
+    format_compliance: 4,
+    conciseness: 2,
+  },
+  scenarioWeights: {
+    coding: 2, reasoning: 2, structured: 2, summary: 2, adversarial: 1, archaeology: 2, synthesis: 2,
+  },
   resultsDir: './results',
   capabilitiesDir: './capabilities',
   candidateTemp: 0.7,

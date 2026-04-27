@@ -23,6 +23,11 @@ async function main() {
     console.log(`[comparitron] === REPORT === (${runId})`)
     run(runId)
   }
+  if (all || args.has('report-html')) {
+    const { run } = require('./lib/report-html')
+    console.log(`[comparitron] === REPORT HTML === (${runId})`)
+    run(runId)
+  }
 }
 
 main().then(() => process.exit(0)).catch(err => { console.error(err.message); process.exit(1) })

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparitron — 2026-04-26_23-30_chonko-p40_coding-reasoning-structured-summary-adversarial</title>
+<style>
+  :root { --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a; --text: #e2e4ed; --dim: #6b7280; --green: #4ade80; --yellow: #facc15; --red: #f87171; --blue: #60a5fa; --accent: #818cf8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; padding: 24px; }
+  h1 { font-size: 20px; color: var(--accent); margin-bottom: 4px; }
+  .meta { color: var(--dim); font-size: 12px; margin-bottom: 24px; }
+  .controls { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 32px; flex-wrap: wrap; }
+  .control-group { display: flex; flex-direction: column; gap: 8px; }
+  .control-group h3 { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  .slider-row label { width: 130px; font-size: 12px; color: var(--text); }
+  .slider-row input[type=range] { width: 120px; accent-color: var(--accent); }
+  .slider-row .val { width: 28px; text-align: right; color: var(--accent); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface); color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px; text-align: right; white-space: nowrap; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); }
+  th:first-child { text-align: left; }
+  th.sorted-asc::after { content: ' ↑'; color: var(--accent); }
+  th.sorted-desc::after { content: ' ↓'; color: var(--accent); }
+  td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td:first-child { text-align: left; color: var(--text); }
+  tr:hover td { background: var(--surface); }
+  .green { color: var(--green); }
+  .yellow { color: var(--yellow); }
+  .red { color: var(--red); }
+  .dim { color: var(--dim); }
+  .rank { color: var(--dim); font-size: 11px; width: 24px; display: inline-block; }
+  .bias-warn { color: var(--yellow); }
+  .incomplete { color: var(--dim); font-size: 11px; }
+  .maxscore { color: var(--dim); font-size: 11px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<h1>COMPARITRON</h1>
+<div class="meta">chonko — Tesla P40 24GB &nbsp;·&nbsp; 4/25/2026 &nbsp;·&nbsp; 107 responses &nbsp;·&nbsp; 538 scores</div>
+
+<div class="controls">
+  <div class="control-group">
+    <h3>Scenario Weights</h3>
+    
+    <div class="slider-row">
+      <label>coding</label>
+      <input type="range" min="0" max="5" step="0.5" value="2" data-scenario="coding" class="scenario-weight">
+      <span class="val" id="sw-coding">2</span>
+    </div>
+    <div class="slider-row">
+      <label>reasoning</label>
+      <input type="range" min="0" max="5" step="0.5" value="2" data-scenario="reasoning" class="scenario-weight">
+      <span class="val" id="sw-reasoning">2</span>
+    </div>
+    <div class="slider-row">
+      <label>structured</label>
+      <input type="range" min="0" max="5" step="0.5" value="2" data-scenario="structured" class="scenario-weight">
+      <span class="val" id="sw-structured">2</span>
+    </div>
+    <div class="slider-row">
+      <label>summary</label>
+      <input type="range" min="0" max="5" step="0.5" value="2" data-scenario="summary" class="scenario-weight">
+      <span class="val" id="sw-summary">2</span>
+    </div>
+    <div class="slider-row">
+      <label>adversarial</label>
+      <input type="range" min="0" max="5" step="0.5" value="1" data-scenario="adversarial" class="scenario-weight">
+      <span class="val" id="sw-adversarial">1</span>
+    </div>
+  </div>
+  <div class="control-group">
+    <h3>Dimension Weights</h3>
+    
+    <div class="slider-row">
+      <label>correctness</label>
+      <input type="range" min="0" max="16" step="1" value="8" data-dim="correctness" class="dim-weight">
+      <span class="val" id="dw-correctness">8</span>
+    </div>
+    <div class="slider-row">
+      <label>instruction following</label>
+      <input type="range" min="0" max="16" step="1" value="4" data-dim="instruction_following" class="dim-weight">
+      <span class="val" id="dw-instruction_following">4</span>
+    </div>
+    <div class="slider-row">
+      <label>format compliance</label>
+      <input type="range" min="0" max="16" step="1" value="4" data-dim="format_compliance" class="dim-weight">
+      <span class="val" id="dw-format_compliance">4</span>
+    </div>
+    <div class="slider-row">
+      <label>conciseness</label>
+      <input type="range" min="0" max="16" step="1" value="2" data-dim="conciseness" class="dim-weight">
+      <span class="val" id="dw-conciseness">2</span>
+    </div>
+  </div>
+</div>
+
+<div class="maxscore" id="maxscore-label">Max score: 90</div>
+<table id="leaderboard">
+  <thead>
+    <tr>
+      <th data-col="model">Model</th>
+      <th data-col="score">Score</th>
+      <th data-col="speed">t/s</th>
+      <th data-col="sc_coding">coding</th><th data-col="sc_reasoning">reasoning</th><th data-col="sc_structured">structure</th><th data-col="sc_summary">summary</th><th data-col="sc_adversarial">adversari</th>
+      <th data-col="votes">Votes</th>
+      <th data-col="delta">Self Δ</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<script>
+const RAW = {"rows":[{"model":"gemma4:31b","avgSpeed":5,"avgPrefill":81,"sceneCols":[89.3,88.19999999999999,89.2,90,84.8],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":5,"correctness":5,"conciseness":4.636363636363637,"format_compliance":5},{"instruction_following":4.9,"correctness":4.9,"conciseness":4.7,"format_compliance":5},{"instruction_following":5,"correctness":4.888888888888889,"conciseness":5,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":4.5,"correctness":4.6,"conciseness":5,"format_compliance":5}],"peer":88.68888888888888,"self":null,"delta":null,"votes":10},{"model":"claude-sonnet-4-6","avgSpeed":72,"avgPrefill":null,"sceneCols":[87.6,90,89.2,90,81.6],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":5,"correctness":4.7,"conciseness":5,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":5,"correctness":4.9,"conciseness":5,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":4.5,"correctness":4.2,"conciseness":5,"format_compliance":5}],"peer":88.35555555555555,"self":null,"delta":null,"votes":10},{"model":"qwen3.6:27b","avgSpeed":12,"avgPrefill":156,"sceneCols":[83.75,89.75,86.5,90,90],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":5,"correctness":4.375,"conciseness":4.375,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":4.875,"format_compliance":5},{"instruction_following":4.875,"correctness":4.625,"conciseness":5,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5}],"peer":87.77777777777777,"self":89.77777777777777,"delta":2,"votes":10},{"model":"gemma4:26b","avgSpeed":43,"avgPrefill":480,"sceneCols":[83.4,89.5,84.25,90,80.5],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":4.9,"correctness":4.5,"conciseness":3.9,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":4.75,"format_compliance":5},{"instruction_following":4.5,"correctness":4.75,"conciseness":4.875,"format_compliance":4.625},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":4.625,"correctness":4,"conciseness":5,"format_compliance":5}],"peer":86.08888888888889,"self":88.66666666666667,"delta":2.577777777777783,"votes":10},{"model":"qwen3.5:27b","avgSpeed":12,"avgPrefill":155,"sceneCols":[89.6,89.6,61.2,90,88.80000000000001],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":5,"correctness":5,"conciseness":4.8,"format_compliance":5},{"instruction_following":5,"correctness":5,"conciseness":4.8,"format_compliance":5},{"instruction_following":3.4,"correctness":3.3,"conciseness":3.8,"format_compliance":3.4},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":4.9,"correctness":5,"conciseness":4.8,"format_compliance":4.9}],"peer":83.28888888888889,"self":88,"delta":4.711111111111109,"votes":10},{"model":"deepseek-r1:32b","avgSpeed":4,"avgPrefill":72,"sceneCols":[null,85.80000000000001,65.19999999999999,90,51.2],"sceneVotes":[0,2,2,2,2],"sceneDims":[null,{"instruction_following":4.7,"correctness":4.7,"conciseness":4.7,"format_compliance":5},{"instruction_following":2.9,"correctness":3.9,"conciseness":5,"format_compliance":3.1},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":2.1,"correctness":3.1,"conciseness":3,"format_compliance":3}],"peer":76.17142857142858,"self":null,"delta":null,"votes":8},{"model":"qwen3.5:9b","avgSpeed":34,"avgPrefill":439,"sceneCols":[63.900000000000006,89.25,53,90,88.5],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":3.2222222222222223,"correctness":2.6666666666666665,"conciseness":4.111111111111111,"format_compliance":4.888888888888889},{"instruction_following":5,"correctness":5,"conciseness":4.625,"format_compliance":5},{"instruction_following":3,"correctness":2.875,"conciseness":3,"format_compliance":3},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":4.875,"correctness":4.875,"conciseness":5,"format_compliance":5}],"peer":75.64444444444445,"self":72,"delta":-3.6444444444444457,"votes":10},{"model":"deepseek-r1:14b","avgSpeed":26,"avgPrefill":385,"sceneCols":[68.39999999999999,86.6,61.599999999999994,88.19999999999999,66.8],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":3.5,"correctness":3.4,"conciseness":4.4,"format_compliance":4.6},{"instruction_following":4.8,"correctness":4.9,"conciseness":4.3,"format_compliance":4.9},{"instruction_following":2.7,"correctness":3.9,"conciseness":4.6,"format_compliance":2.6},{"instruction_following":4.6,"correctness":5,"conciseness":4.9,"format_compliance":5},{"instruction_following":3.3,"correctness":4.3,"conciseness":3,"format_compliance":3.3}],"peer":75.15555555555555,"self":null,"delta":null,"votes":10},{"model":"devstral-small-2","avgSpeed":18,"avgPrefill":1811,"sceneCols":[76,81.5,63.25,90,53.25],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":4.25,"correctness":3.75,"conciseness":4.5,"format_compliance":5},{"instruction_following":4.5,"correctness":4.5,"conciseness":4,"format_compliance":4.875},{"instruction_following":2.625,"correctness":4.375,"conciseness":4.875,"format_compliance":2},{"instruction_following":5,"correctness":5,"conciseness":5,"format_compliance":5},{"instruction_following":2.375,"correctness":1.75,"conciseness":4.875,"format_compliance":5}],"peer":74.97222222222223,"self":86.88888888888889,"delta":11.916666666666657,"votes":10},{"model":"deepseek-coder-v2:16b","avgSpeed":80,"avgPrefill":798,"sceneCols":[64.39999999999999,75.6,64.39999999999999,69.15,68.6],"sceneVotes":[1,2,2,2,2],"sceneDims":[{"instruction_following":3.6,"correctness":2.8,"conciseness":3.8,"format_compliance":5},{"instruction_following":4,"correctness":4.2,"conciseness":3.6,"format_compliance":4.7},{"instruction_following":3.1,"correctness":3.8,"conciseness":4.8,"format_compliance":3},{"instruction_following":2.5555555555555554,"correctness":4.888888888888889,"conciseness":3.111111111111111,"format_compliance":3.3333333333333335},{"instruction_following":3.6,"correctness":3.8,"conciseness":4.1,"format_compliance":3.9}],"peer":68.9125,"self":null,"delta":null,"votes":9},{"model":"phi4-reasoning:plus","avgSpeed":22,"avgPrefill":1132,"sceneCols":[66.95,75.25,67.75,66.5,33.75],"sceneVotes":[2,2,2,2,2],"sceneDims":[{"instruction_following":3.888888888888889,"correctness":3.888888888888889,"conciseness":3.2222222222222223,"format_compliance":3.5555555555555554},{"instruction_following":3.75,"correctness":4.875,"conciseness":3.375,"format_compliance":3.625},{"instruction_following":3.375,"correctness":4.375,"conciseness":3.125,"format_compliance":3.25},{"instruction_following":3.125,"correctness":4.375,"conciseness":3.25,"format_compliance":3.125},{"instruction_following":1.25,"correctness":2.625,"conciseness":1.125,"format_compliance":1.375}],"peer":65.18333333333334,"self":89.375,"delta":24.191666666666663,"votes":10}],"scenarios":["coding","reasoning","structured","summary","adversarial"],"maxVotesPerScene":2};
+
+let weights = {"correctness":8,"instruction_following":4,"format_compliance":4,"conciseness":2};
+let scenarioWeights = {"coding":2,"reasoning":2,"structured":2,"summary":2,"adversarial":1};
+let sortCol = 'score';
+let sortDir = -1;
+
+function computeScore(row) {
+  const maxScore = Object.values(weights).reduce((a,b) => a+b, 0) * 5;
+  const sceneCols = RAW.scenarios.map((sc, si) => {
+    const sd = row.sceneDims[si];
+    if (!sd) return null;
+    const ws = Object.entries(weights).reduce((t, [d, w]) => t + (sd[d] ?? 0) * w, 0);
+    return ws;
+  });
+  const items = sceneCols.map((s, i) => s != null ? { score: s, weight: scenarioWeights[RAW.scenarios[i]] ?? 1 } : null).filter(Boolean);
+  if (!items.length) return { score: null, sceneCols, maxScore };
+  const totalW = items.reduce((s,i) => s + i.weight, 0);
+  const score = totalW ? items.reduce((s,i) => s + i.score * i.weight, 0) / totalW : null;
+  return { score, sceneCols, maxScore };
+}
+
+function scoreColor(v, max) {
+  if (v == null) return 'dim';
+  const r = v / max;
+  if (r >= 0.9) return 'green';
+  if (r >= 0.7) return 'yellow';
+  return 'red';
+}
+
+function fmt(v) { return v != null ? v.toFixed(1) : '—'; }
+
+function render() {
+  const maxScore = Object.values(weights).reduce((a,b) => a+b, 0) * 5;
+  document.getElementById('maxscore-label').textContent = 'Max score: ' + maxScore;
+
+  const rows = RAW.rows.map(r => {
+    const { score, sceneCols } = computeScore(r);
+    return { ...r, score, sceneCols };
+  });
+
+  rows.sort((a, b) => {
+    let av, bv;
+    if (sortCol === 'model') { av = a.model; bv = b.model; return sortDir * (av < bv ? -1 : av > bv ? 1 : 0); }
+    if (sortCol === 'score') { av = a.score; bv = b.score; }
+    else if (sortCol === 'speed') { av = a.avgSpeed; bv = b.avgSpeed; }
+    else if (sortCol === 'votes') { av = a.votes; bv = b.votes; }
+    else if (sortCol === 'delta') { av = a.delta; bv = b.delta; }
+    else if (sortCol.startsWith('sc_')) {
+      const si = RAW.scenarios.indexOf(sortCol.slice(3));
+      av = a.sceneCols[si]; bv = b.sceneCols[si];
+    }
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sortDir * (bv - av);
+  });
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = rows.map((r, i) => {
+    const sc = scoreColor(r.score, maxScore);
+    const delta = r.delta != null ? (r.delta >= 0 ? '+' : '') + r.delta.toFixed(1) : '—';
+    const deltaCls = r.delta != null && Math.abs(r.delta) > 0.5 ? 'bias-warn' : 'dim';
+    const sceneTds = RAW.scenarios.map((scenario, si) => {
+      const v = r.sceneCols[si];
+      const cls = scoreColor(v, maxScore);
+      const flag = (r.sceneVotes?.[si] ?? 0) < RAW.maxVotesPerScene ? '<span class="incomplete">*</span>' : '';
+      return `<td class="${cls}">${fmt(v)}${flag}</td>`;
+    });
+    return `<tr>
+      <td><span class="rank">${i+1}.</span> ${r.model}</td>
+      <td class="${sc}">${fmt(r.score)}</td>
+      <td class="dim">${r.avgSpeed ?? '—'}</td>
+      ${sceneTds.join('')}
+      <td class="dim">${r.votes}</td>
+      <td class="${deltaCls}">${delta}</td>
+    </tr>`;
+  }).join('');
+
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.remove('sorted-asc','sorted-desc');
+    if (th.dataset.col === sortCol) th.classList.add(sortDir === -1 ? 'sorted-desc' : 'sorted-asc');
+  });
+}
+
+document.getElementById('leaderboard').querySelector('thead').addEventListener('click', e => {
+  const th = e.target.closest('th');
+  if (!th) return;
+  const col = th.dataset.col;
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = col === 'model' ? 1 : -1; }
+  render();
+});
+
+document.querySelectorAll('.scenario-weight').forEach(el => {
+  el.addEventListener('input', () => {
+    scenarioWeights[el.dataset.scenario] = parseFloat(el.value);
+    document.getElementById('sw-' + el.dataset.scenario).textContent = el.value;
+    render();
+  });
+});
+
+document.querySelectorAll('.dim-weight').forEach(el => {
+  el.addEventListener('input', () => {
+    weights[el.dataset.dim] = parseInt(el.value);
+    document.getElementById('dw-' + el.dataset.dim).textContent = el.value;
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
