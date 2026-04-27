@@ -1,8 +1,12 @@
 # Comparitron
 
+<p align="center">
+  <img src="docs/images/comparitron-oracle.png" alt="Comparitron Oracle" width="480">
+</p>
+
 A local LLM benchmark tool. Run a set of prompts across multiple Ollama models, score the responses with a jury of peer models, and watch the leaderboard update in real time.
 
-**[Latest results →](docs/reports/2026-04-26_15-06_chonko-p40_coding-reasoning-structured-summary-adversarial-archaeology-synthesis.md)**
+**[Latest results →](docs/reports/2026-04-26_23-30_chonko-p40_coding-reasoning-structured-summary-adversarial.md)**
 
 ## Hardware
 
