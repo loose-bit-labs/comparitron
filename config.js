@@ -1,11 +1,12 @@
 module.exports = {
   ollamaHost: process.env.OLLAMA_HOST || 'http://localhost:11434',
   hardware: {
-    tag: 'chonko-p40',
-    host: 'chonko',
+    tag: 'p40',
     gpu: 'Tesla P40 24GB',
+    vramTotal: 24,
   },
   candidates: [
+    'qwen3.6:latest',
     'qwen3.6:27b',
     'qwen3.5:27b',
     'qwen3.5:9b',
@@ -20,9 +21,8 @@ module.exports = {
   jurors: [
     'gemma4:26b',
     'phi4-reasoning:plus',
-	'devstral-small-2',
-	'qwen3.6:27b',
-	'qwen3.5:9b',
+    'qwen3.6:27b',
+    'qwen3.5:9b',
   ],
   capabilities: ['coding', 'reasoning', 'structured', 'summary', 'adversarial', 'archaeology', 'synthesis'],
   weights: {

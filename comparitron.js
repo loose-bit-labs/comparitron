@@ -28,6 +28,10 @@ async function main() {
     console.log(`[comparitron] === REPORT HTML === (${runId})`)
     run(runId)
   }
+  if (args.has('leaderboard')) {
+    const { printTable } = require('./lib/leaderboard')
+    printTable()
+  }
 }
 
 main().then(() => process.exit(0)).catch(err => { console.error(err.message); process.exit(1) })

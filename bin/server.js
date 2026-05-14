@@ -5,6 +5,7 @@ const path = require('path')
 const config = require('../config')
 const { aggregate } = require('../lib/aggregate')
 const { latestRunId } = require('../lib/runs')
+const leaderboard = require('../lib/leaderboard')
 
 const PUBLIC = path.join(__dirname, '../public')
 const MIME = {
@@ -19,6 +20,10 @@ const server = http.createServer((req, res) => {
     const data = aggregate(config, latestRunId(config))
     res.writeHead(200, { 'Content-Type': 'application/json' })
     return res.end(JSON.stringify(data))
+  }
+  if (req.url === '/api/leaderboard') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ rows: leaderboard.read(), hardware: leaderboard.readHardware() }))
   }
 
   const filePath = path.join(PUBLIC, req.url === '/' ? 'index.html' : req.url)

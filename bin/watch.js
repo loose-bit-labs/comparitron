@@ -2,6 +2,7 @@
 const config = require('../config')
 const { aggregate } = require('../lib/aggregate')
 const { latestRunId } = require('../lib/runs')
+const leaderboard = require('../lib/leaderboard')
 
 const RESET  = '\x1b[0m'
 const BOLD   = '\x1b[1m'
@@ -20,12 +21,47 @@ function scoreColor(v, max) {
   return RED
 }
 
+function fmtCell(row) {
+  if (!row) return null
+  const score = row.score != null ? row.score.toFixed(1).padStart(4) : '   —'
+  const tps   = row.tps   != null ? String(row.tps).padStart(4) + 'tps' : '      —'
+  return score + ' / ' + tps   // fixed 14 chars: "86.5 /  12tps" or "   — /       —"
+}
+
+function renderLeaderboard(lines) {
+  const rows = leaderboard.read()
+  if (!rows.length) return
+
+  const hwIds  = [...new Set(rows.map(r => r.hardware))]
+  const models = [...new Set(rows.map(r => r.model))]
+  const colW = 22
+  const hwW  = 17   // fits 14-char cell + 3 padding
+
+  lines.push('')
+  lines.push(DIM + '─'.repeat(colW + hwIds.length * hwW) + RESET)
+  lines.push(BOLD + 'Leaderboard' + RESET + DIM + '  score /  tps  per hardware' + RESET)
+  lines.push(DIM + ' '.repeat(colW) + hwIds.map(h => h.padStart(hwW)).join('') + RESET)
+
+  for (const model of models) {
+    const cells = hwIds.map(hw => {
+      const row = rows.find(r => r.model === model && r.hardware === hw)
+      const cell = fmtCell(row)
+      if (!cell) return DIM + '—'.padStart(hwW) + RESET
+      const col = row.score != null ? scoreColor(row.score, 90) : DIM
+      return col + cell.padStart(hwW) + RESET
+    })
+    lines.push(model.padEnd(colW) + cells.join(''))
+  }
+}
+
 function render() {
   const data = aggregate(config, latestRunId(config))
+  const lbRows = leaderboard.read()
   const lines = [CLEAR]
 
   const ts = new Date().toLocaleTimeString()
-  lines.push(`${BOLD}${CYAN}COMPARITRON${RESET}  ${DIM}responses: ${data.responseCount}  scores: ${data.scoreCount}  ${ts}${RESET}`)
+  const hw = config.hardware?.tag || '?'
+  lines.push(`${BOLD}${CYAN}COMPARITRON${RESET}  ${DIM}hw: ${hw}  responses: ${data.responseCount}  scores: ${data.scoreCount}  ${ts}${RESET}`)
   lines.push('')
 
   const COL = { model: 22, score: 7, speed: 6, votes: 7 }
@@ -44,7 +80,9 @@ function render() {
 
   for (const r of data.rows) {
     const score = r.peer != null ? r.peer.toFixed(1) : '-'
-    const speed = r.avgSpeed != null ? `${r.avgSpeed}` : '-'
+    // prefer leaderboard TPS (reflects latest benchmark) over stale response cache value
+    const lbTps = lbRows.find(lb => lb.model === r.model)?.tps ?? null
+    const speed = (lbTps ?? r.avgSpeed) != null ? `${lbTps ?? r.avgSpeed}` : '-'
     const delta = r.delta != null ? (r.delta >= 0 ? '+' : '') + r.delta.toFixed(1) : '-'
     const sceneStrs = r.sceneCols.map((v, i) => {
       const s = v != null ? v.toFixed(1) : '-'
@@ -64,6 +102,8 @@ function render() {
 
   lines.push('')
   lines.push(DIM + `Score max: ${data.maxScore}  Votes=total jury evaluations  —=no data  *=incomplete prompt coverage  SelfΔ=self_score−peer_score` + RESET)
+
+  renderLeaderboard(lines)
 
   process.stdout.write(lines.join('\n') + '\n')
 }

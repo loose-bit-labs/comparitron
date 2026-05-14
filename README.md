@@ -4,22 +4,17 @@
   <img src="docs/images/comparitron-oracle.png" alt="Comparitron Oracle" width="480">
 </p>
 
-A local LLM benchmark tool. Run a set of prompts across multiple Ollama models, score the responses with a jury of peer models, and watch the leaderboard update in real time.
+A local LLM benchmark tool. Run a set of prompts across multiple Ollama models, score the responses with a jury of peer models, and accumulate results in a persistent cross-hardware leaderboard.
 
-**[Latest results →](docs/reports/2026-04-26_23-30_chonko-p40_coding-reasoning-structured-summary-adversarial.md)**
+**[Latest results →](docs/reports/2026-05-05_p40.md)**
 
 ## Hardware
 
-Results are hardware-dependent — each report includes the hardware tag used.
+Results are stored per (model, hardware) tuple in `results/leaderboard.json`. The hardware ID is the short GPU name — `p40`, `p40x2`, `r9700`, `rtx4060`, etc. — set via `config.hardware.tag`.
 
-| Component | Detail |
-|---|---|
-| Host | Dell PowerEdge R740 |
-| GPU | Tesla P40 24GB (Pascal, CUDA 6.1) |
-| RAM | 188GB |
-| Notes | No Tensor Cores, no bfloat16, no Flash Attention 2. Q4_K_M inference only. Large models (32B+) via VRAM+RAM offload — functional but slow. |
+Hardware metadata (GPU name, VRAM, backend) lives in `results/hardware.json`.
 
-When re-running on different hardware, update `ollamaHost` in `config.js` and note the hardware in your results.
+Current primary bench hardware: Tesla P40 24GB (Pascal) via Ollama. No Tensor Cores, no bfloat16 — Q4_K_M only. Large models (32B+) via VRAM+RAM offload.
 
 ## How it works
 
@@ -28,6 +23,8 @@ When re-running on different hardware, update `ollamaHost` in `config.js` and no
 **Jury** — for every cached response, each juror model scores it on four dimensions (1–5 each). Scores are cached per `(candidate, prompt, juror)` tuple — safe to interrupt and resume at any point. Adding a new model or juror only runs the missing entries.
 
 **Self-preference tracking** — the jury matrix shows each model's score when judged by itself vs. by peers. The `Self Δ` column flags self-serving bias.
+
+**Leaderboard** — after each report run, results are upserted into `results/leaderboard.json` keyed by `(model, hardware)`. The `lastTested` field tracks when each row was last updated. Run `node comparitron.js leaderboard` to print the cross-hardware table.
 
 **Watch / Server** — a terminal watcher (`watch.js`) and an HTTP server (`server.js`) both read from the same aggregated data and update live.
 
@@ -45,8 +42,11 @@ node comparitron.js run
 # 3. Score all responses
 node comparitron.js jury
 
-# 4. Print the report
+# 4. Print the report (also updates leaderboard.json)
 node comparitron.js report
+
+# Print the cross-hardware leaderboard
+node comparitron.js leaderboard
 
 # Watch live (separate terminal)
 node bin/watch.js
@@ -69,24 +69,29 @@ node comparitron.js run jury # run then jury, skip report
 ```js
 module.exports = {
   ollamaHost: process.env.OLLAMA_HOST || 'http://localhost:11434',
+  hardware: {
+    tag: 'p40',          // short GPU ID — used as leaderboard key
+    gpu: 'Tesla P40 24GB',
+    vramTotal: 24,
+  },
   candidates: [                        // models to benchmark
+    'qwen3.6:27b',
     'gemma4:26b',
-    'phi4-reasoning:plus',
     // ...
   ],
   jurors: [                            // models that score responses
     'gemma4:26b',
-    'phi4-reasoning:plus',
+    'qwen3.6:27b',
   ],
-  capabilities: ['coding', 'reasoning', 'structured', 'summary', 'adversarial'],
+  capabilities: ['coding', 'reasoning', 'structured', 'summary', 'adversarial', 'archaeology', 'synthesis'],
   weights: {                           // dimension weights (see docs/scoring.md)
     correctness: 8,
     instruction_following: 4,
     format_compliance: 4,
     conciseness: 2,
   },
-  scenarioWeights: {                   // scenario-level multipliers
-    coding: 2, reasoning: 2, structured: 2, summary: 2, adversarial: 1,
+  scenarioWeights: {
+    coding: 2, reasoning: 2, structured: 2, summary: 2, adversarial: 1, archaeology: 2, synthesis: 2,
   },
   resultsDir: './results',
   candidateTemp: 0.7,
@@ -124,12 +129,30 @@ ANTHROPIC_API_KEY=sk-... node bin/claude-runner.js
 
 The model name does not need to be in `config.candidates` — the aggregator discovers it from disk. The jury will score it; it will not be asked to be a juror (only `config.jurors` models are called for scoring).
 
+## Benchmarking OpenAI-compatible endpoints
+
+For llama.cpp, vLLM, or any OpenAI-compatible server:
+
+```bash
+# TPS benchmark only (fast)
+node bin/tps-vllm.js --host http://<host>:<port> --alias qwen3.6:35b-a3b --hardware r9700 --runs 5
+
+# Full quality benchmark (slow — runs all capability prompts)
+node bin/vllm-runner.js --host http://<host>:<port> --alias qwen3.6:35b-a3b --hardware r9700
+node comparitron.js jury       # score the responses
+node comparitron.js report     # update leaderboard
+```
+
+`--alias` sets the model name stored in the cache and leaderboard. Defaults to the ID returned by `/v1/models`. Pass `--hardware <id>` to tps-vllm.js to upsert the TPS result into the leaderboard.
+
 ## Results layout
 
 ```
 results/
-  responses/   <scenario>_<promptId>_<model>.json   — one per (prompt, model)
-  scores/      <scenario>_<promptId>_<candidate>_by_<juror>.json  — one per (prompt, candidate, juror)
+  responses/      <scenario>_<promptId>_<model>.json         — one per (prompt, model)
+  scores/         <scenario>_<promptId>_<candidate>_by_<juror>.json  — one per (prompt, candidate, juror)
+  leaderboard.json   — persistent (model, hardware) table; updated by report and tps-vllm
+  hardware.json      — hardware registry keyed by short GPU ID
 ```
 
 All files are plain JSON. Safe to delete individual entries to force a re-run.
@@ -146,5 +169,6 @@ npm run run         # node comparitron.js run
 npm run jury        # node comparitron.js jury
 npm run report      # node comparitron.js report
 npm run report-html # node comparitron.js report-html
+npm run leaderboard # node comparitron.js leaderboard
 npm start           # node comparitron.js  (run + jury + report)
 ```

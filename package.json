@@ -7,6 +7,7 @@
     "run": "node comparitron.js run",
     "jury": "node comparitron.js jury",
     "report": "node comparitron.js report",
-    "report-html": "node comparitron.js report-html"
+    "report-html": "node comparitron.js report-html",
+    "leaderboard": "node comparitron.js leaderboard"
   }
 }
