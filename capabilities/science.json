@@ -1,0 +1,19 @@
+[
+  {
+    "id": "entropy_direction",
+    "prompt": "A sealed, thermally insulated box contains a hot metal block (200°C) and a cold metal block (20°C) of identical mass and specific heat capacity. They are placed in contact. The system is left until equilibrium. (a) What is the final equilibrium temperature? (b) Has the total entropy of the system increased, decreased, or stayed the same? (c) Could the reverse process — where heat flows from the cold block to the hot block — occur spontaneously? Explain why or why not using the Second Law of Thermodynamics. Show reasoning.",
+    "evalHint": "Correct answers: (a) 110°C (average, since identical mass and Cp). (b) Increased — irreversible heat transfer always increases total entropy. (c) No — this would require entropy to decrease spontaneously, violating the Second Law. Model must correctly invoke the Second Law (entropy of an isolated system cannot decrease) and distinguish between the First Law (energy conservation, satisfied by either direction) and Second Law (directionality). Common failure: saying entropy stays the same, or confusing energy conservation with thermodynamic directionality.",
+    "answer": "(a) 110°C  (b) Increased  (c) No — spontaneous heat flow from cold to hot would decrease total entropy, violating the Second Law"
+  },
+  {
+    "id": "dna_replication_error",
+    "prompt": "During DNA replication, a single base substitution occurs: an adenine (A) is incorrectly replaced by guanine (G) in the template strand. This mutation is not repaired. After three more rounds of replication, how many of the resulting DNA molecules carry the original mutation? How many carry the complementary change on the opposite strand? Show your reasoning using a replication tree.",
+    "evalHint": "After the initial error: the mutant strand pairs with C (not T) in the next round, producing one mutant duplex (G–C where A–T should be). After round 2: 2 mutant duplexes, 2 normal. After round 3: 4 mutant, 4 normal. After round 4 (three more rounds from the error): 8 mutant, 8 normal of 16 total. Of the 8 mutant molecules, they carry G–C (the mutation + complement), NOT A–G mismatches. The key insight: the complementary change (C replacing the original T complement) appears in all mutant descendants. Common failures: miscounting rounds, saying the mutation 'dilutes out', or thinking the A–G mismatch persists beyond round 1.",
+    "answer": "After 3 more rounds: 8 of 16 molecules carry the mutation (G–C pair where A–T should be)"
+  },
+  {
+    "id": "big_o_proof",
+    "prompt": "Prove or disprove: if f(n) = O(g(n)) and g(n) = O(h(n)), then f(n) = O(h(n)). Use the formal definition of Big-O notation in your proof.",
+    "evalHint": "This is true (transitivity of Big-O). Formal proof: By definition, f(n)=O(g(n)) means ∃ c1,n1 such that f(n) ≤ c1·g(n) for n≥n1. g(n)=O(h(n)) means ∃ c2,n2 such that g(n) ≤ c2·h(n) for n≥n2. Therefore f(n) ≤ c1·g(n) ≤ c1·c2·h(n) for n≥max(n1,n2). Setting c=c1·c2 and n0=max(n1,n2) gives f(n)=O(h(n)). Model must use the formal definition (constants and threshold n), not just assert it's obvious."
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "python_retry",
+    "prompt": "Write a Python decorator called retry(max_attempts, delay_seconds) that retries the decorated function up to max_attempts times if it raises an exception, waiting delay_seconds between attempts. On final failure, re-raise the last exception. Do not use any external libraries. Include a usage example.",
+    "evalHint": "Must: accept max_attempts and delay_seconds as decorator args (so it's a decorator factory), use functools.wraps, re-raise original exception on final attempt, use time.sleep for delay. Common failures: not using wraps, swallowing the final exception, wrong nesting for parametrized decorator."
+  },
+  {
+    "id": "python_flatten",
+    "prompt": "Write a Python function flatten(nested) that recursively flattens an arbitrarily nested list into a single flat list. It must handle mixed nesting depths and non-list items of any type. Do not use any external libraries or import anything. Include examples.",
+    "evalHint": "Must handle arbitrary nesting depth, preserve order, work with any element type (strings, dicts, None, etc.). Common failures: only handling one level of nesting, breaking on non-iterable items, treating strings as iterables (strings are iterable in Python — must special-case them or check isinstance(x, list))."
+  },
+  {
+    "id": "rust_dedup",
+    "prompt": "Write a Rust function called dedup_preserve_order that takes a Vec<i32> and returns a new Vec<i32> containing only the first occurrence of each value, preserving the original order. Do not sort the input. Include a main() with examples.",
+    "evalHint": "Must use a HashSet for O(n) lookup, preserve insertion order (not sort order), return new Vec without mutating input. Common failures: sorting first (changes order), O(n²) solution without a seen set, mutating the input Vec."
+  }
+]

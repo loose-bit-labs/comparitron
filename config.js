@@ -6,6 +6,7 @@ module.exports = {
     vramTotal: 24,
   },
   candidates: [
+    'gemma4-qat:26b',
     'qwen3.6:latest',
     'qwen3.6:27b',
     'qwen3.5:27b',
@@ -20,7 +21,6 @@ module.exports = {
   ],
   jurors: [
     'gemma4:26b',
-    'phi4-reasoning:plus',
     'qwen3.6:27b',
     'qwen3.5:9b',
   ],
