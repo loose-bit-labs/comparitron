@@ -1,5 +1,7 @@
 node_modules/
-results/
+results/*
+!results/leaderboard.json
+!results/hardware.json
 *.log
 /e
 /q

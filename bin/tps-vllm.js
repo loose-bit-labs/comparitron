@@ -127,7 +127,7 @@ async function main() {
 
   if (hardware) {
     const date = new Date().toISOString().slice(0, 10)
-    leaderboard.upsert({ model: leaderboardName, hardware, lastTested: date, tps: avgTps })
+    leaderboard.upsert({ model: leaderboardName, hardware, lastTested: date, c1Tps: avgTps })
     console.log(`\n[tps-vllm] leaderboard updated (${leaderboardName} @ ${hardware} = ${avgTps} t/s)`)
   } else {
     console.log('\n[tps-vllm] pass --hardware <id> to update the leaderboard')

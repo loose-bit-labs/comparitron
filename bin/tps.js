@@ -96,7 +96,7 @@ async function main() {
     const date = new Date().toISOString().slice(0, 10)
     for (const r of summary) {
       if (r.avgTps == null) continue
-      leaderboard.upsert({ model: r.model, hardware: hw, lastTested: date, tps: r.avgTps })
+      leaderboard.upsert({ model: r.model, hardware: hw, lastTested: date, c1Tps: r.avgTps })
     }
     console.log(`\n[tps] leaderboard updated (${summary.filter(r => r.avgTps != null).length} models, hw=${hw})`)
   }

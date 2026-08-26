@@ -24,8 +24,8 @@ function scoreColor(v, max) {
 function fmtCell(row) {
   if (!row) return null
   const score = row.score != null ? row.score.toFixed(1).padStart(4) : '   —'
-  const tps   = row.tps   != null ? String(row.tps).padStart(4) + 'tps' : '      —'
-  return score + ' / ' + tps   // fixed 14 chars: "86.5 /  12tps" or "   — /       —"
+  const c1    = (row.c1Tps ?? row.tps) != null ? String(row.c1Tps ?? row.tps).padStart(4) + 'c1/s' : '      —'
+  return score + ' / ' + c1   // fixed 14 chars: "86.5 /  12c1/s" or "   — /        —"
 }
 
 function renderLeaderboard(lines) {
@@ -39,7 +39,7 @@ function renderLeaderboard(lines) {
 
   lines.push('')
   lines.push(DIM + '─'.repeat(colW + hwIds.length * hwW) + RESET)
-  lines.push(BOLD + 'Leaderboard' + RESET + DIM + '  score /  tps  per hardware' + RESET)
+  lines.push(BOLD + 'Leaderboard' + RESET + DIM + '  score /  c1 t/s  per hardware' + RESET)
   lines.push(DIM + ' '.repeat(colW) + hwIds.map(h => h.padStart(hwW)).join('') + RESET)
 
   for (const model of models) {
@@ -81,7 +81,8 @@ function render() {
   for (const r of data.rows) {
     const score = r.peer != null ? r.peer.toFixed(1) : '-'
     // prefer leaderboard TPS (reflects latest benchmark) over stale response cache value
-    const lbTps = lbRows.find(lb => lb.model === r.model)?.tps ?? null
+    const lbRow = lbRows.find(lb => lb.model === r.model)
+    const lbTps = lbRow ? (lbRow.c1Tps ?? lbRow.tps ?? null) : null
     const speed = (lbTps ?? r.avgSpeed) != null ? `${lbTps ?? r.avgSpeed}` : '-'
     const delta = r.delta != null ? (r.delta >= 0 ? '+' : '') + r.delta.toFixed(1) : '-'
     const sceneStrs = r.sceneCols.map((v, i) => {

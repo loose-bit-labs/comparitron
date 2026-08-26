@@ -1,0 +1,556 @@
+[
+  {
+    "model": "qwen3.6:35b-a3b",
+    "hardware": "r9700",
+    "lastTested": "2026-06-10",
+    "prefillTps": null,
+    "score": 87.08823529411765,
+    "vramTotal": 32,
+    "vramUsed": null,
+    "votes": 79,
+    "selfDelta": null,
+    "coding": 89.25,
+    "reasoning": 89.75,
+    "structured": 87,
+    "summary": 90,
+    "adversarial": 82,
+    "archaeology": 86.33333333333333,
+    "synthesis": 87.83333333333333,
+    "c1Tps": 124
+  },
+  {
+    "model": "qwen3.6:27b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 167,
+    "score": 86.52941176470588,
+    "coding": 80.25,
+    "reasoning": 89.75,
+    "structured": 86.5,
+    "summary": 90,
+    "adversarial": 85.66666666666667,
+    "archaeology": 89,
+    "synthesis": 84.66666666666667,
+    "votes": 81,
+    "selfDelta": -0.764705882352942,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 12
+  },
+  {
+    "model": "qwen3.6:latest",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 196,
+    "score": 86.34705882352942,
+    "coding": 89,
+    "reasoning": 89.55,
+    "structured": 88.8,
+    "summary": 90,
+    "adversarial": 82.8,
+    "archaeology": 83.86666666666666,
+    "synthesis": 84.39999999999999,
+    "votes": 99,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 18
+  },
+  {
+    "model": "gemma4:31b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 98,
+    "score": 85.96470588235293,
+    "coding": 89.3,
+    "reasoning": 88.19999999999999,
+    "structured": 85.60000000000001,
+    "summary": 90,
+    "adversarial": 86.66666666666667,
+    "archaeology": 85.46666666666665,
+    "synthesis": 79.60000000000001,
+    "votes": 101,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 5
+  },
+  {
+    "model": "claude-sonnet-4-6",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": null,
+    "score": 85.5529411764706,
+    "coding": 87.6,
+    "reasoning": 90,
+    "structured": 89.2,
+    "summary": 90,
+    "adversarial": 83.46666666666667,
+    "archaeology": 86,
+    "synthesis": 77.46666666666667,
+    "votes": 100,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 72
+  },
+  {
+    "model": "gemma4:26b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 637,
+    "score": 85.16470588235293,
+    "coding": 83.4,
+    "reasoning": 89.5,
+    "structured": 84.25,
+    "summary": 90,
+    "adversarial": 81.5,
+    "archaeology": 87.66666666666667,
+    "synthesis": 82,
+    "votes": 82,
+    "selfDelta": 4.1294117647058926,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 43
+  },
+  {
+    "model": "gemma4-qat:26b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 595,
+    "score": 83.54901960784315,
+    "votes": 59,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "coding": 89,
+    "reasoning": 87.66666666666667,
+    "structured": 87,
+    "summary": 90,
+    "adversarial": 82.77777777777779,
+    "archaeology": 86,
+    "synthesis": 68.88888888888889,
+    "c1Tps": 53
+  },
+  {
+    "model": "qwen3.5:27b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 167,
+    "score": 82.81176470588235,
+    "coding": 89.6,
+    "reasoning": 89.6,
+    "structured": 61.2,
+    "summary": 90,
+    "adversarial": 79.26666666666667,
+    "archaeology": 86.13333333333333,
+    "synthesis": 83.60000000000001,
+    "votes": 100,
+    "selfDelta": 5.188235294117646,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 12
+  },
+  {
+    "model": "qwen3.5:9b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 495,
+    "score": 78.59117647058824,
+    "coding": 63.900000000000006,
+    "reasoning": 89.25,
+    "structured": 53,
+    "summary": 90,
+    "adversarial": 76.41666666666667,
+    "archaeology": 90,
+    "synthesis": 81.5,
+    "votes": 81,
+    "selfDelta": -5.414705882352948,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 34
+  },
+  {
+    "model": "devstral-small-2",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 1820,
+    "score": 76.25,
+    "coding": 76,
+    "reasoning": 81.5,
+    "structured": 63.25,
+    "summary": 90,
+    "adversarial": 69.58333333333333,
+    "archaeology": 83.66666666666667,
+    "synthesis": 71.66666666666667,
+    "votes": 80,
+    "selfDelta": 9.75,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 19
+  },
+  {
+    "model": "deepseek-r1:32b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 70,
+    "score": 73.73333333333333,
+    "coding": 79.93333333333332,
+    "reasoning": 85.80000000000001,
+    "structured": 65.19999999999999,
+    "summary": 90,
+    "adversarial": 56.666666666666664,
+    "archaeology": 81.73333333333333,
+    "synthesis": 65.46666666666667,
+    "votes": 98,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 4
+  },
+  {
+    "model": "deepseek-r1:14b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 385,
+    "score": 71.58823529411765,
+    "coding": 68.39999999999999,
+    "reasoning": 86.6,
+    "structured": 61.599999999999994,
+    "summary": 88.19999999999999,
+    "adversarial": 58.6,
+    "archaeology": 80.4,
+    "synthesis": 63.46666666666667,
+    "votes": 100,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 27
+  },
+  {
+    "model": "deepseek-coder-v2:16b",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 884,
+    "score": 63.5764705882353,
+    "coding": 68.6,
+    "reasoning": 75.6,
+    "structured": 64.39999999999999,
+    "summary": 68.2,
+    "adversarial": 61.13333333333333,
+    "archaeology": 66.46666666666665,
+    "synthesis": 48.13333333333333,
+    "votes": 99,
+    "selfDelta": null,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 80
+  },
+  {
+    "model": "phi4-reasoning:plus",
+    "hardware": "p40",
+    "lastTested": "2026-06-10",
+    "prefillTps": 1039,
+    "score": 54.175490196078435,
+    "coding": 66.95,
+    "reasoning": 75.25,
+    "structured": 67.75,
+    "summary": 66.5,
+    "adversarial": 40.416666666666664,
+    "archaeology": 49.833333333333336,
+    "synthesis": 32.44444444444445,
+    "votes": 81,
+    "selfDelta": 35.4541394335512,
+    "vramTotal": 24,
+    "vramUsed": null,
+    "c1Tps": 22
+  },
+  {
+    "model": "qwen3.6:latest",
+    "hardware": "p40x2",
+    "lastTested": "2026-05-05",
+    "prefillTps": null,
+    "score": null,
+    "vramTotal": 48,
+    "vramUsed": null,
+    "c1Tps": 38
+  },
+  {
+    "model": "qwen3.8:27b-q8_k_xl",
+    "hardware": "v620x2",
+    "lastTested": "2026-08-19",
+    "perf": {
+      "tool": "bench_parallel.mjs v2.1",
+      "started": "2026-08-19T18:50:06.655Z",
+      "ggufBytes": 31457991680,
+      "cards": 2,
+      "busGbps": null,
+      "achievedGBsPerCard": 176.43,
+      "legs": [
+        {
+          "concurrency": 1,
+          "aggTps": 11.22,
+          "perStreamTps": 168.55,
+          "ttftP50s": 33.85,
+          "ttftP95s": 89.93,
+          "itlP50ms": 88.22,
+          "itlP95ms": 90.03,
+          "itlP99ms": 94.87
+        },
+        {
+          "concurrency": 2,
+          "aggTps": 19.65,
+          "perStreamTps": 25.88,
+          "ttftP50s": 46.15,
+          "ttftP95s": 104.43,
+          "itlP50ms": 95.83,
+          "itlP95ms": 97.95,
+          "itlP99ms": 111.97
+        },
+        {
+          "concurrency": 4,
+          "aggTps": 32.01,
+          "perStreamTps": 15.44,
+          "ttftP50s": 53.32,
+          "ttftP95s": 127.71,
+          "itlP50ms": 113.79,
+          "itlP95ms": 117.08,
+          "itlP99ms": 128.7
+        },
+        {
+          "concurrency": 8,
+          "aggTps": 47.27,
+          "perStreamTps": 18.96,
+          "ttftP50s": 82.31,
+          "ttftP95s": 173.21,
+          "itlP50ms": 146.7,
+          "itlP95ms": 154.02,
+          "itlP99ms": 163.84
+        }
+      ],
+      "gpu": [
+        {
+          "name": "GPU[0]",
+          "utilMean": 46.56599552572707,
+          "powerMean": 86.2751677852349,
+          "tempP95": 53
+        },
+        {
+          "name": "GPU[1]",
+          "utilMean": 46.04026845637584,
+          "powerMean": 92.0559284116331,
+          "tempP95": 53
+        }
+      ]
+    },
+    "c1Tps": 11,
+    "c2Tps": 20,
+    "c4Tps": 32,
+    "c8Tps": 47
+  },
+  {
+    "model": "qwen3.8:27b-q6_k",
+    "hardware": "v620x2",
+    "lastTested": "2026-08-18",
+    "perf": {
+      "tool": "bench_parallel.mjs v2.1",
+      "started": "2026-08-18T17:14:30.131Z",
+      "ggufBytes": 22884408288,
+      "cards": 2,
+      "busGbps": 819,
+      "achievedGBsPerCard": 169.77,
+      "legs": [
+        {
+          "concurrency": 1,
+          "aggTps": 14.84,
+          "perStreamTps": 34.75,
+          "ttftP50s": 23.81,
+          "ttftP95s": 55.75,
+          "itlP50ms": 66.57,
+          "itlP95ms": 69.14,
+          "itlP99ms": 72.86
+        },
+        {
+          "concurrency": 2,
+          "aggTps": 25.17,
+          "perStreamTps": 27.26,
+          "ttftP50s": 32.28,
+          "ttftP95s": 81.38,
+          "itlP50ms": 73.33,
+          "itlP95ms": 76,
+          "itlP99ms": 82.49
+        },
+        {
+          "concurrency": 4,
+          "aggTps": 38.92,
+          "perStreamTps": 27.36,
+          "ttftP50s": 49.42,
+          "ttftP95s": 105.61,
+          "itlP50ms": 90.61,
+          "itlP95ms": 93.31,
+          "itlP99ms": 110.27
+        },
+        {
+          "concurrency": 8,
+          "aggTps": 48.41,
+          "perStreamTps": 13.15,
+          "ttftP50s": 81.58,
+          "ttftP95s": 169.62,
+          "itlP50ms": 142.83,
+          "itlP95ms": 148.44,
+          "itlP99ms": 159.28
+        }
+      ],
+      "gpu": [
+        {
+          "name": "GPU[0]",
+          "utilMean": 48.291666666666664,
+          "powerMean": 89.82440476190476
+        },
+        {
+          "name": "GPU[1]",
+          "utilMean": 44.48809523809524,
+          "powerMean": 90.19047619047619
+        }
+      ]
+    },
+    "c1Tps": 15,
+    "c2Tps": 25,
+    "c4Tps": 39,
+    "c8Tps": 48,
+    "notes": "plain Q6_K 22.9GB file (pre-v3); replaced by UD-Q6_K 21.98GB in the unsloth repo - close proxy, not this file"
+  },
+  {
+    "model": "qwen3.8:27b-nvfp4-mtp-med",
+    "hardware": "v620x2",
+    "lastTested": "2026-08-18",
+    "perf": {
+      "tool": "bench_parallel.mjs v2.1",
+      "started": "2026-08-18T19:11:02.653Z",
+      "ggufBytes": 16378863040,
+      "cards": 2,
+      "busGbps": 819,
+      "achievedGBsPerCard": 151.04,
+      "legs": [
+        {
+          "concurrency": 1,
+          "aggTps": 18.44,
+          "perStreamTps": 27.03,
+          "ttftP50s": 22.96,
+          "ttftP95s": 55.54,
+          "itlP50ms": 53.12,
+          "itlP95ms": 54.84,
+          "itlP99ms": 65.33
+        },
+        {
+          "concurrency": 2,
+          "aggTps": 28.57,
+          "perStreamTps": 32.26,
+          "ttftP50s": 28.84,
+          "ttftP95s": 62.32,
+          "itlP50ms": 63.98,
+          "itlP95ms": 66.47,
+          "itlP99ms": 79.11
+        },
+        {
+          "concurrency": 4,
+          "aggTps": 42.13,
+          "perStreamTps": 20.21,
+          "ttftP50s": 41.97,
+          "ttftP95s": 97.78,
+          "itlP50ms": 83.2,
+          "itlP95ms": 86.75,
+          "itlP99ms": 103.3
+        },
+        {
+          "concurrency": 8,
+          "aggTps": 53.77,
+          "perStreamTps": 16.57,
+          "ttftP50s": 70.16,
+          "ttftP95s": 152.4,
+          "itlP50ms": 126.89,
+          "itlP95ms": 131.9,
+          "itlP99ms": 143.82
+        }
+      ],
+      "gpu": [
+        {
+          "name": "GPU[0]",
+          "utilMean": 45.11029411764706,
+          "powerMean": 97.0404411764706
+        },
+        {
+          "name": "GPU[1]",
+          "utilMean": 46.481617647058826,
+          "powerMean": 101.66911764705883
+        }
+      ]
+    },
+    "c1Tps": 18,
+    "c2Tps": 29,
+    "c4Tps": 42,
+    "c8Tps": 54,
+    "notes": "esatapedico experimental build; Vulkan NVFP4 first-look on gfx906; MTP head unused"
+  },
+  {
+    "model": "qwen3.8:27b-q5_k_xl",
+    "hardware": "v620x2",
+    "lastTested": "2026-08-19",
+    "perf": {
+      "tool": "bench_parallel.mjs v2.1",
+      "started": "2026-08-19T00:09:35.589Z",
+      "ggufBytes": 20218178624,
+      "cards": 2,
+      "busGbps": 819,
+      "achievedGBsPerCard": 169.55,
+      "legs": [
+        {
+          "concurrency": 1,
+          "aggTps": 16.77,
+          "perStreamTps": 34.16,
+          "ttftP50s": 32.25,
+          "ttftP95s": 61.06,
+          "itlP50ms": 58.43,
+          "itlP95ms": 60.26,
+          "itlP99ms": 75.18
+        },
+        {
+          "concurrency": 2,
+          "aggTps": 27.16,
+          "perStreamTps": 39.07,
+          "ttftP50s": 35.43,
+          "ttftP95s": 74.93,
+          "itlP50ms": 67.6,
+          "itlP95ms": 69.92,
+          "itlP99ms": 79.79
+        },
+        {
+          "concurrency": 4,
+          "aggTps": 42.78,
+          "perStreamTps": 64.81,
+          "ttftP50s": 45.15,
+          "ttftP95s": 95.7,
+          "itlP50ms": 81.83,
+          "itlP95ms": 84.22,
+          "itlP99ms": 101.34
+        }
+      ],
+      "gpu": [
+        {
+          "name": "GPU[0]",
+          "utilMean": 48.25083612040134,
+          "powerMean": 87.66889632107024
+        },
+        {
+          "name": "GPU[1]",
+          "utilMean": 45.16722408026756,
+          "powerMean": 89.2675585284281
+        }
+      ]
+    },
+    "c1Tps": 17,
+    "c2Tps": 27,
+    "c4Tps": 43,
+    "notes": "c=8 leg contaminated (orchestrating session) - excluded by per-leg gate"
+  }
+]

@@ -24,7 +24,7 @@ Current primary bench hardware: Tesla P40 24GB (Pascal) via Ollama. No Tensor Co
 
 **Self-preference tracking** — the jury matrix shows each model's score when judged by itself vs. by peers. The `Self Δ` column flags self-serving bias.
 
-**Leaderboard** — after each report run, results are upserted into `results/leaderboard.json` keyed by `(model, hardware)`. The `lastTested` field tracks when each row was last updated. Run `node comparitron.js leaderboard` to print the cross-hardware table.
+**Leaderboard** — after each report run, results are upserted into `results/leaderboard.json` keyed by `(model, hardware)`. The `lastTested` field tracks when each row was last updated. Perf entries come from `tps-vllm.js` (single scalar) or `bin/bench-parallel.js` (full concurrency sweep — see below; clean legs only). Run `node comparitron.js leaderboard` to print the cross-hardware table.
 
 **Watch / Server** — a terminal watcher (`watch.js`) and an HTTP server (`server.js`) both read from the same aggregated data and update live.
 
@@ -145,14 +145,47 @@ node comparitron.js report     # update leaderboard
 
 `--alias` sets the model name stored in the cache and leaderboard. Defaults to the ID returned by `/v1/models`. Pass `--hardware <id>` to tps-vllm.js to upsert the TPS result into the leaderboard.
 
+## Performance bench (llama-server load sweep)
+
+`bin/bench-parallel.js` is the concurrency load bench for any llama-server endpoint — the engine behind the 2×V620 A/B rig. Where `tps-vllm.js` gives one scalar, this gives the full picture per concurrency level:
+
+```bash
+# full sweep (c=1,2,4,8 x 5 rounds) against a llama-server, leaderboard upsert
+node bin/bench-parallel.js --url http://<host>:11311/v1/chat/completions \
+  --mode full --cards 2 --bus-gbps 819 --hardware v620x2 --alias qwen3.8:27b-q8_k_xl
+
+# post-swap sanity (~1-2 min, c=1 only; no leaderboard write)
+node bin/bench-parallel.js --mode smoke
+
+# plumbing check only — /props, /slots, GPU sampler; NO inference
+node bin/bench-parallel.js --selftest
+```
+
+Per leg it reports: aggregate + per-stream t/s, TTFT p50/p95, ITL p50/p95/p99, roofline (achieved GB/s per card vs `--bus-gbps`), in-flight saturation, and per-GPU util/occupancy/power/temperature. GPU sampling auto-detects `rocm-smi` (AMD) or `nvidia-smi` (NVIDIA) and degrades to a warning if neither exists.
+
+**Contamination gate.** A `/slots` canary samples at 1Hz and flags a leg `CONTAMINATED` if the server processes tasks the bench did not send (e.g. a live agent session sharing the endpoint). The leaderboard upsert is **per-leg**: only `clean` legs are written, and a dirty c=1 means no `c1Tps`. A contaminated number never reaches the board — re-run the leg in a quiet window instead.
+
+**Leaderboard schema.** Rows get flat per-concurrency scalars — `c1Tps`, `c2Tps`, `c4Tps`, `c8Tps` — one per clean leg (`c1Tps` is the solo-stream value comparable to the `tps`/`tps-vllm` rows), plus a `perf` block with the full per-leg percentile detail (TTFT/ITL p50–p99), roofline, and per-GPU stats.
+
+Full run data (per-request detail + timelines) dumps to `results/bench-<ts>-<name>.json` (gitignored; pass `--out` to redirect).
+
+**Backfilling** existing bench JSONs into the leaderboard without re-running:
+
+```bash
+node bin/import-bench.js path/to/bench-....json --hardware v620x2 --alias qwen3.8:27b-q8_k_xl [--note "text"]
+```
+
+Same schema and contamination gate as the live upsert (both go through `lib/perf.js`).
+
 ## Results layout
 
 ```
 results/
   responses/      <scenario>_<promptId>_<model>.json         — one per (prompt, model)
   scores/         <scenario>_<promptId>_<candidate>_by_<juror>.json  — one per (prompt, candidate, juror)
-  leaderboard.json   — persistent (model, hardware) table; updated by report and tps-vllm
-  hardware.json      — hardware registry keyed by short GPU ID
+  bench-<ts>-<name>.json — load-bench run data (gitignored; --out redirects)
+  leaderboard.json   — persistent (model, hardware) table; updated by report, tps-vllm, bench-parallel, import-bench — GIT-TRACKED, history via git
+  hardware.json      — hardware registry keyed by short GPU ID — GIT-TRACKED (no hostnames in this file)
 ```
 
 All files are plain JSON. Safe to delete individual entries to force a re-run.

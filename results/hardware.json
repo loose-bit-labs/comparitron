@@ -1,0 +1,30 @@
+{
+  "p40": {
+    "gpu": "Tesla P40",
+    "vramTotal": 24,
+    "backend": "ollama"
+  },
+  "p40x2": {
+    "gpu": "Dual Tesla P40",
+    "vramTotal": 48,
+    "backend": "ollama"
+  },
+  "r9700": {
+    "gpu": "AMD Radeon AI PRO R9700",
+    "vramTotal": 32,
+    "backend": "llama.cpp/vulkan",
+    "notes": "GGML_VK_ALLOW_GRAPHICS_QUEUE=1, PCIe ASPM=performance, kisak-mesa, rm_kq patch"
+  },
+  "v620x2": {
+    "gpu": "2x AMD Radeon Pro V620 32GB (SIENNA_CICHLID, gfx906)",
+    "vramTotal": 64,
+    "backend": "llama.cpp/vulkan",
+    "notes": "stock 250W TGP floor; PCIe power/control=on is sysfs, not reboot-persistent"
+  },
+  "rtx4060": {
+    "gpu": "NVIDIA RTX 4060 Ti 16GB",
+    "vramTotal": 16,
+    "backend": "llama.cpp/cuda",
+    "notes": "sm_89 Ada; card shared with image-gen tenants"
+  }
+}
