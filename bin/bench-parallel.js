@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// bench-parallel.js — llama-server load bench v2.2 (zero-dep, Node 18+, CJS)
+// bench-parallel.js — llama-server load bench v2.4 (zero-dep, Node 18+, CJS)
 //
 // Home of the load-bench engine (v2.1 features carried over from the original
 // 2×V620 Vulkan rig build; this is the shared, box-agnostic home for it now).
@@ -20,6 +20,7 @@
 // Modes (explicit flags override mode presets):
 //   --mode smoke   c=1, rounds=1, warmup=1, 256 tokens   (~1-2 min; post-swap sanity)
 //   --mode full    c=1,2,4,8, rounds=5, warmup=1         (the real sweep)
+//   --mode agent   c=1,2, rounds=2, warmup=1, ~128k shared prefix — decode-at-depth
 //   --selftest     plumbing check only: /props + /slots + GPU sampler, NO inference
 //
 // Env tracking: reads /props (model_path, alias, ftype, total_slots, build),
@@ -27,6 +28,10 @@
 // auto-fills --gguf-bytes from the file size. A /slots canary samples per-slot
 // is_processing/n_tokens at 1Hz and flags CONTAMINATED if the server processes
 // tasks this bench did not send (e.g. a live agent session sharing the endpoint).
+// v2.3: scrapes the server's actual launch argv off /proc (pid matched by --port)
+// and records gpuLayers/ctxSize/parallel/fa/cache-type-k/v/cont-batching/spec-type
+// in meta.env.serverProc — /props has no idea what -ngl the server was told.
+// On a remote target (no local process) use --gpu-layers N to record ngl manually.
 //
 // Leaderboard: pass --hardware <id> to upsert the CLEAN legs only (per-leg contamination
 // gate — a contaminated leg is never written, and a dirty c=1 means no c1Tps).
@@ -39,13 +44,70 @@
 
 const { performance } = require('node:perf_hooks')
 const { execFile } = require('node:child_process')
-const { writeFileSync, realpathSync, statSync, mkdirSync } = require('node:fs')
+const { writeFileSync, realpathSync, statSync, mkdirSync, readFileSync, readdirSync } = require('node:fs')
 const path = require('node:path')
+const os = require('node:os')
 
 const RESULTS_DIR = path.join(__dirname, '..', 'results')
 
 // ---------- args ----------
 const argv = process.argv.slice(2)
+if (argv.includes('-h') || argv.includes('--help')) {
+  console.log(`bench-parallel.js v2.4 — llama-server load bench (zero-dep)
+
+USAGE
+  node bin/bench-parallel.js [flags]
+
+MODES (presets fill what you don't set explicitly)
+  --mode smoke          c=1, rounds=1, warmup=1, 256 tokens (~1-2 min, post-swap sanity)
+  --mode full           c=1,2,4,8, rounds=5, warmup=1 (default)
+  --mode agent          deep-context agentic bench: c=1,2, rounds=2, warmup=1,
+                        ~128k shared prefix per request (see COST below)
+  --selftest            plumbing check only: /props + /slots + GPU sampler, NO inference
+
+FLAGS
+  --url <url>           chat-completions endpoint (default ${'http://localhost:11311/v1/chat/completions'})
+  --model <name>        model name sent in requests (default Qwen38-27B)
+  --concurrency <1,2,..> concurrency levels to sweep (default 1,2,4,8)
+  --rounds <n>          request rounds per level (default 5)
+  --warmup <n>          warmup rounds, excluded from stats (default 1)
+  --max-tokens <n>      max tokens per response (default 1024)
+  --ctx-target <tok>    shared prefix depth for --mode agent, in tokens (default 128000)
+  --parallel <n>        fallback slot count if /props has no total_slots (default 0)
+  --settle <sec>        seconds between levels (default 5)
+  --temperature <t>     sampling temperature (default 0.6)
+  --out <file>          JSON dump path (default results/bench-<ts>-<host>-<alias>.json;
+                        <host> = server hostname from --url, local hostname if localhost)
+  --alias <name>        leaderboard model name (overrides /props alias)
+  --hardware <id>       leaderboard hardware id (v620x2, r9700, rtx4060, ...)
+  --model-path <file>   local GGUF path; enables stale-service realpath check
+                        + auto-fills gguf-bytes from file size
+  --gguf-bytes <n>      model size for roofline GB/s (usually auto-filled)
+  --cards <n>           GPU card count for roofline (default 2)
+  --bus-gbps <n>        per-card theoretical bandwidth GB/s for %% (0 = skip)
+  --gpu-layers <n>      record -ngl manually when the server is remote
+                        (v2.3 scrapes /proc locally, so usually unnecessary)
+  -h, --help            this text
+
+EXAMPLES
+  node bin/bench-parallel.js --mode full --cards 2 --bus-gbps 819 \\
+      --hardware v620x2 --alias qwen3.8:27b-q8_k_xl
+  node bin/bench-parallel.js --mode smoke
+  node bin/bench-parallel.js --mode agent --ctx-target 128000 --hardware v620x2
+  node bin/bench-parallel.js --selftest
+
+AGENT MODE COST: each sweep pays prompt-processing of --ctx-target ONCE per
+slot (prefix priming; minutes at ~200 t/s pp — keep the server quiet through
+priming), then measured rounds reuse the cached prefix (cache hit -> small TTFT).
+Requires server per-slot ctx >= ctx-target + max-tokens + 2048. If TTFT p50 in
+the measured legs is pp-sized, the prefix cache did NOT hit — check that the
+slot wasn't reset between legs.
+
+CONTAMINATION GATE: clean legs only are upserted into
+results/leaderboard.json when --hardware is given; a leg sampled with foreign
+/slots activity (a live agent sharing the endpoint) is never written.`)
+  process.exit(0)
+}
 const A = {
   url: 'http://localhost:11311/v1/chat/completions',
   model: 'Qwen38-27B',
@@ -53,6 +115,7 @@ const A = {
   rounds: 5,
   warmup: 1,
   maxTokens: 1024,
+  ctxTarget: 0,       // --mode agent: shared-prefix depth in tokens (0 until mode preset sets it)
   parallel: 0,        // fallback server slot count (live /props total_slots preferred)
   ggufBytes: 0,       // auto-filled from model file size unless given
   cards: 2,
@@ -65,6 +128,7 @@ const A = {
   selftest: false,
   alias: null,        // leaderboard model name (overrides the /props alias for naming)
   hardware: null,     // hardware ID for the leaderboard (v620x2, r9700, rtx4060, ...)
+  gpuLayers: null,    // override for the /proc-scraped -ngl (remote servers can't be scraped)
 }
 const explicit = new Set()
 for (let i = 0; i < argv.length; i++) {
@@ -80,6 +144,7 @@ for (let i = 0; i < argv.length; i++) {
     case 'rounds': A.rounds = Number(v); break
     case 'warmup': A.warmup = Number(v); break
     case 'max-tokens': A.maxTokens = Number(v); break
+    case 'ctx-target': A.ctxTarget = Number(v); break
     case 'parallel': A.parallel = Number(v); break
     case 'gguf-bytes': A.ggufBytes = Number(v); break
     case 'cards': A.cards = Number(v); break
@@ -89,6 +154,7 @@ for (let i = 0; i < argv.length; i++) {
     case 'temperature': A.temperature = Number(v); break
     case 'model-path': A.modelPath = v; break
     case 'mode': A.mode = v; break
+    case 'gpu-layers': A.gpuLayers = Number(v); break
     case 'alias': A.alias = v; break
     case 'hardware': A.hardware = v; break
     default: console.error(`[bench] unknown flag --${k}`); process.exit(2)
@@ -98,8 +164,12 @@ for (let i = 0; i < argv.length; i++) {
 const setIf = (k, v) => { if (!explicit.has(k)) A[k] = v }
 if (A.mode === 'smoke') {
   setIf('concurrency', [1]); setIf('rounds', 1); setIf('warmup', 1); setIf('max-tokens', 256)
+} else if (A.mode === 'agent') {
+  setIf('concurrency', [1, 2]); setIf('rounds', 2); setIf('warmup', 1)
+  if (!explicit.has('ctx-target')) A.ctxTarget = 128000
+  if (A.ctxTarget < 500) { console.error(`[bench] --mode agent needs --ctx-target >= 500 (got ${A.ctxTarget})`); process.exit(2) }
 } else if (A.mode !== 'full') {
-  console.error(`[bench] unknown --mode ${A.mode} (smoke|full)`)
+  console.error(`[bench] unknown --mode ${A.mode} (smoke|full|agent)`)
   process.exit(2)
 }
 
@@ -109,6 +179,69 @@ const PROMPTS = [
   'Write a Rust function that parses and validates a JSON string with detailed error reporting.',
   'Create a C++20 thread pool implementation using std::jthread and std::condition_variable.',
 ]
+
+// ---------- agent mode: deep shared prefix (v2.4) ----------
+// The short bench oversells: real agent sessions decode at ~128k context depth where
+// KV traffic per token is ~15x the c1-short case. Agent mode builds one big shared
+// prefix (calibrated to --ctx-target tokens via usage.prompt_tokens), primes every slot
+// once (pp is paid ONCE), then measures decode at depth with prefix-cache hits.
+let PREFIX = null        // filled by main() in agent mode; null otherwise
+let AGENT_META = null
+
+const FILLER_LINES = [
+  'function reconcile(@N@) { const acc = buckets.get(@N@) ?? new Acc(); return acc.flush(@N@ % 13); }',
+  'WARN srv update_slots: retry @N@ after backoff, slot = @N@, n_tokens = @N@',
+  'test parse_registry_entry_case_@N@ ... ok (@N@ assertions, @N@ ms)',
+  'git commit -m "refactor ring buffer @N@: drop redundant bounds check"',
+  '    for (auto& kv : cache) if (kv.second.lru > @N@) evict(kv.first, @N@);',
+  '// TODO: the @N@ path regressed after the @N@ merge; bisect from @N@',
+  '$ cargo build --release --features vulkan,moe 2>&1 | grep -c "^warning" # @N@',
+  '{"role":"assistant","tool_calls":[{"name":"read_file","arguments":{"path":"src/@N@.ts"}}]}',
+  'SELECT id, payload FROM events WHERE shard = @N@ AND ts > @N@ ORDER BY ts DESC LIMIT @N@;',
+  '  inflating: build/artifacts/lib@N@.so   (deflated @N@%)',
+]
+
+function buildFillerChars(chars) {
+  const out = []
+  let n = 0, i = 0
+  while (n < chars) {
+    const line = FILLER_LINES[i % FILLER_LINES.length].replace(/@N@/g, String(i))
+    out.push(line)
+    n += line.length + 1
+    i++
+  }
+  return out.join('\n')
+}
+
+// probe the server's tokenizer: send a sample of the filler, read back real token count
+async function calibrateTokenizer() {
+  const sample = buildFillerChars(4000)
+  const res = await fetch(A.url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    signal: AbortSignal.timeout(300_000),
+    body: JSON.stringify({ model: A.model, messages: [{ role: 'user', content: sample }], max_tokens: 1, temperature: 0, stream: false }),
+  })
+  if (!res.ok) throw new Error(`calibration probe HTTP ${res.status}`)
+  const j = await res.json()
+  const pt = j.usage?.prompt_tokens
+  if (!pt) throw new Error('calibration probe returned no usage.prompt_tokens')
+  return { sampleTok: pt, charsPerToken: sample.length / pt }
+}
+
+// prime every slot's prefix cache once: each slot pays pp of the filler exactly once,
+// with a tiny completion; measured rounds then hit the cache (small TTFT, decode at depth)
+async function primePrefixCache(totalSlots) {
+  const n = Math.min(Math.max(1, totalSlots || 1), Math.max(...A.concurrency))
+  log(`agent: priming prefix cache on ${n} slot(s) @ ~${A.ctxTarget} tok — this pays pp ONCE per slot (minutes), keep the server quiet`)
+  const t = performance.now()
+  const recs = await Promise.all(Array.from({ length: n }, (_, i) =>
+    sendChat(90_000 + i, `Priming marker ${i}: reply with the single word prime${i}.`, 0,
+      { prefix: PREFIX, maxTokens: 8, timeoutMs: 5_400_000 })))
+  const failed = recs.filter((r) => !r.ok)
+  if (failed.length) { log(`agent: ${failed.length}/${n} priming requests FAILED — server unusable for agent mode, aborting`); process.exit(1) }
+  log(`agent: prefix priming done in ${f2((performance.now() - t) / 60000)} min`)
+}
 
 const log = (m) => console.log(`[bench] ${m}`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -136,10 +269,17 @@ class Pool {
 }
 
 // ---------- one streamed chat completion ----------
-async function sendChat(id, prompt, queuedMs) {
+// opts.prefix: system-message filler carried alongside the prompt (agent mode) —
+// every request shares it so the server's prefix cache hits and decode runs at depth.
+async function sendChat(id, prompt, queuedMs, opts = {}) {
   const ac = new AbortController()
-  const killer = setTimeout(() => ac.abort(), 600_000)
+  const timeoutMs = opts.timeoutMs ?? (opts.prefix ? 4_500_000 : 600_000)
+  const killer = setTimeout(() => ac.abort(), timeoutMs)
   const tSend = performance.now()
+  const maxTokens = opts.maxTokens ?? A.maxTokens
+  const messages = opts.prefix
+    ? [{ role: 'system', content: opts.prefix }, { role: 'user', content: prompt }]
+    : [{ role: 'user', content: prompt }]
   try {
     const res = await fetch(A.url, {
       method: 'POST',
@@ -147,8 +287,8 @@ async function sendChat(id, prompt, queuedMs) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: A.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: A.maxTokens,
+        messages,
+        max_tokens: maxTokens,
         temperature: A.temperature,
         stream: true,
         stream_options: { include_usage: true },
@@ -198,7 +338,13 @@ async function sendChat(id, prompt, queuedMs) {
       tpsDecode: tokens / (decodeMs / 1000),
       ok: true,
     }
-    log(`[done] #${id} ${f2(totalMs / 1000)}s | ${tokens} tok | TTFT ${f2((ttft ?? 0) / 1000)}s | ${f2(rec.tpsDecode)} t/s dec | queued ${f2(queuedMs / 1000)}s`)
+    if (usage?.prompt_tokens != null) rec.promptTok = usage.prompt_tokens
+    const cached = usage?.prompt_tokens_details?.cached_tokens
+    if (cached != null) rec.cacheHits = cached
+    const cacheTag = rec.cacheHits != null
+      ? ` | cache ${f2((rec.cacheHits / Math.max(1, rec.promptTok)) * 100)}% (${rec.cacheHits}/${rec.promptTok})`
+      : ''
+    log(`[done] #${id} ${f2(totalMs / 1000)}s | ${tokens} tok | TTFT ${f2((ttft ?? 0) / 1000)}s | ${f2(rec.tpsDecode)} t/s dec | queued ${f2(queuedMs / 1000)}s${cacheTag}`)
     return rec
   } catch (e) {
     const tEnd = performance.now()
@@ -394,7 +540,7 @@ async function leg(C, c1Decode, totalSlots) {
     const out = []
     for (let i = 0; i < n; i++) {
       const id = offset + i
-      out.push(pool.run((q) => sendChat(id, PROMPTS[id % PROMPTS.length], q)))
+      out.push(pool.run((q) => sendChat(id, PROMPTS[id % PROMPTS.length], q, { prefix: PREFIX })))
     }
     return out
   }
@@ -417,7 +563,9 @@ async function leg(C, c1Decode, totalSlots) {
   const ttftAll = ok.map((r) => r.ttftMs)
   const perStream = ok.length ? ok.reduce((a, r) => a + r.tpsDecode, 0) / ok.length : 0
   const latAll = ok.map((r) => r.totalMs / 1000)
-  const avgLat = latAll.length ? latAll.reduce((a, b) => a + b, 0) / latAll.length : 0
+  const ptArr = ok.map((r) => r.promptTok).filter((x) => x != null)
+  let hSum = 0, pSum = 0
+  for (const r of ok) if (r.cacheHits != null && r.promptTok) { hSum += r.cacheHits; pSum += r.promptTok }  const avgLat = latAll.length ? latAll.reduce((a, b) => a + b, 0) / latAll.length : 0
   const achievedGbS = A.ggufBytes ? (aggTps * A.ggufBytes) / A.cards / 1e9 : null
 
   const summary = {
@@ -426,6 +574,10 @@ async function leg(C, c1Decode, totalSlots) {
     aggTps: f2(aggTps), perStreamTps: f2(perStream),
     effVsC1: C === 1 ? '100% (baseline)' : (c1Decode ? f2((perStream / c1Decode) * 100) + '%' : 'n/a (no c=1 in this run)'),
     ttftP50s: f2(pct(ttftAll, 50) / 1000), ttftP95s: f2(pct(ttftAll, 95) / 1000),
+    ctxTokMean: ptArr.length ? Math.round(ptArr.reduce((a, b) => a + b, 0) / ptArr.length) : null,
+    ctxTokP50: ptArr.length ? pct(ptArr, 50) : null,
+    ctxTokMax: ptArr.length ? Math.max(...ptArr) : null,
+    cacheHitPct: hSum > 0 ? f2((hSum / pSum) * 100) : null,
     itlP50ms: f2(pct(itlAll, 50)), itlP95ms: f2(pct(itlAll, 95)), itlP99ms: f2(pct(itlAll, 99)),
     avgLatS: f2(avgLat),
     achievedGBsPerCard: achievedGbS ? f2(achievedGbS) : 'n/a (gguf-bytes unknown)',
@@ -437,6 +589,7 @@ async function leg(C, c1Decode, totalSlots) {
   console.log('-'.repeat(78))
   console.log(`c=${C} | wall ${summary.wallS}s | ${totalTokens} tok | agg ${summary.aggTps} t/s | per-stream ${summary.perStreamTps} t/s | eff ${summary.effVsC1}`)
   console.log(`     TTFT p50/p95 ${summary.ttftP50s}/${summary.ttftP95s}s | ITL p50/p95/p99 ${summary.itlP50ms}/${summary.itlP95ms}/${summary.itlP99ms}ms | avg req ${summary.avgLatS}s`)
+  if (summary.ctxTokMean != null) console.log(`     ctx depth p50/max ${summary.ctxTokP50}/${summary.ctxTokMax} tok (mean ${summary.ctxTokMean}) | prefix-cache hit ${summary.cacheHitPct ?? 'n/a'}`)
   console.log(`     roofline: ${summary.achievedGBsPerCard} GB/s per card (${summary.busPct} of bus) | in-flight peak ${tlSum.peakInFlight ?? '?'} (saturated ${tlSum.saturatedFrac ? f2(tlSum.saturatedFrac * 100) + '%' : '?'}, client queue peak ${tlSum.peakClientQueue ?? '?'})`)
   console.log(`     contamination: ${summary.contamination}`)
   if (cs.available && cs.contaminated) console.log(`     per-slot: ${JSON.stringify(cs.bySlot)}`)
@@ -451,6 +604,59 @@ async function leg(C, c1Decode, totalSlots) {
     summary,
     requests: recs.map(({ itlMs, ...r }) => ({ ...r, sample: r.sample?.slice(0, 240), itlP50ms: f2(pct(itlMs, 50)), itlP95ms: f2(pct(itlMs, 95)), itlP99ms: f2(pct(itlMs, 99)) })),
     timeline: tl.samples.filter((_, i) => i % 4 === 0),
+  }
+}
+
+// ---------- server process probe: HOW was the server launched? ----------
+// /props says what is served but not how it was configured — the -ngl/ctx/parallel
+// knobs are invisible to the API, and -ngl is a huge performance lever on hybrid
+// offload rigs (2×V620 + big-RAM boxes). The bench usually runs on the same box
+// as the server, so read the real argv off /proc. Remote targets yield null.
+function probeServerProc(port) {
+  if (process.platform !== 'linux') return null
+  let pids = []
+  try { pids = readdirSync('/proc').filter((d) => /^\d+$/.test(d)) } catch { return null }
+  const cands = []
+  for (const pid of pids) {
+    let argv
+    try { argv = readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').filter(Boolean) } catch { continue }
+    if (!argv.some((a) => a.includes('llama-server'))) continue
+    const pm = new Map()
+    for (let i = 0; i < argv.length; i++) {
+      let k = argv[i], v = null
+      const eq = k.indexOf('=')
+      if (eq > 0) { v = k.slice(eq + 1); k = k.slice(0, eq) }
+      else if (i + 1 < argv.length && !argv[i + 1].startsWith('-')) v = argv[i + 1]
+      if (k.startsWith('-')) pm.set(k.replace(/^-+/, ''), v)
+    }
+    cands.push({ pid: Number(pid), pm, argv })
+  }
+  if (!cands.length) return null
+  let proc = cands.find((c) => c.pm.get('port') === String(port))
+    || cands.find((c) => c.pm.get('listening-port') === String(port))
+    || null
+  let matched = 'port'
+  if (!proc && cands.length === 1) { proc = cands[0]; matched = 'single' }
+  else if (!proc) matched = 'ambiguous'
+  const pick = (...keys) => { for (const k of keys) if (proc && proc.pm.get(k) != null) return proc.pm.get(k); return null }
+  const flags = {
+    gpuLayers: A.gpuLayers != null ? String(A.gpuLayers) : pick('ngl', 'n-gpu-layers', 'gpu-layers'),
+    ctxSize: pick('ctx-size', 'c', 'ctx', 'n_ctx'),
+    parallel: pick('parallel', 'n-parallel', 'n_parallel'),
+    flashAttn: pick('flash-attn', 'fa'),
+    cacheTypeK: pick('cache-type-k', 'ctk'),
+    cacheTypeV: pick('cache-type-v', 'ctv'),
+    contBatching: proc ? (proc.argv.includes('--cont-batching') || proc.pm.get('cont-batching') !== null) : null,
+    specType: pick('spec-type'),
+    draftModel: pick('model-draft', 'md', 'md-path'),
+    alias: pick('alias'),
+  }
+  return {
+    pid: proc ? proc.pid : null,
+    matched,
+    gpuLayersOverride: A.gpuLayers != null || undefined,
+    ...flags,
+    cmdline: proc ? proc.argv.join(' ') : null,
   }
 }
 
@@ -508,15 +714,43 @@ async function probeEnv() {
       }
     }
   }
+  env.serverProc = probeServerProc(serverPort())
+  if (!env.serverProc) {
+    log('WARN: no local llama-server process found — launch flags (-ngl, ctx, parallel) not captured; pass --gpu-layers N manually if this matters')
+  } else if (env.serverProc.matched === 'ambiguous') {
+    log(`WARN: multiple llama-server processes, none on port ${serverPort()} — launch flags not captured`)
+  } else if (env.serverProc.matched === 'single') {
+    log(`note: matched server pid ${env.serverProc.pid} as the only llama-server process (no --port in argv?)`)
+  }
   return { env, props }
+}
+
+function serverPort() {
+  try { return Number(new URL(A.url).port) || 80 } catch { return 80 }
+}
+
+// machine-readable label for WHO WAS BENCHED — the URL's host, falling back to the
+// local hostname when hitting localhost (the server is this box). Dropped into the
+// output filename (bench-<ts>-<host>-<alias>.json) so results from many boxes can
+// live in one directory without collisions.
+function serverHostLabel() {
+  let h = ''
+  try { h = new URL(A.url).hostname || '' } catch { /* ok */ }
+  if (!h || /^localhost$|^127\.|^::1$|^0\.0\.0\.0$/.test(h)) h = os.hostname()
+  if (!/^\d+\./.test(h)) h = h.split('.')[0] // strip domain suffix for nameful hosts (box.local -> box); keep IPs intact
+  return h.replace(/[^\w.-]/g, '_')
 }
 
 // ---------- main ----------
 async function main() {
   const t0 = performance.now()
   const { env, props } = await probeEnv()
-  log(`bench-parallel v2.2 — node ${process.version} — mode=${A.mode}`)
+  log(`bench-parallel v2.4 — node ${process.version} — mode=${A.mode}`)
   log(`env: ${env.server.alias ?? A.model} [${env.server.ftype ?? '?'}] ${env.server.modelPath ?? env.modelResolved ?? A.modelPath} (${A.ggufBytes ? (A.ggufBytes / 1e9).toFixed(1) + ' GB' : '? GB'}), slots=${env.server.totalSlots ?? A.parallel ?? '?'}, build=${env.server.build ?? '?'}, samp=t${env.server.sampling?.temperature} p${env.server.sampling?.top_p} k${env.server.sampling?.top_k}`)
+  const sp = env.serverProc
+  if (sp && sp.gpuLayers != null) {
+    log(`launch: pid ${sp.pid} ngl=${sp.gpuLayers} ctx=${sp.ctxSize ?? '?'} parallel=${sp.parallel ?? '?'} fa=${sp.flashAttn ?? '?'} cache=${sp.cacheTypeK ?? '?'}/${sp.cacheTypeV ?? '?'} cont=${sp.contBatching ? 'on' : 'off'} spec=${sp.specType ?? 'none'}${sp.gpuLayersOverride ? ' (ngl override)' : ''}`)
+  }
   if (env.server.sleeping) { log('server is SLEEPING — wake it before benchmarking'); process.exit(1) }
 
   if (A.selftest) {
@@ -535,6 +769,21 @@ async function main() {
     process.exit(ok ? 0 : 1)
   }
 
+  if (A.mode === 'agent') {
+    const nctx = props?.default_generation_settings?.n_ctx
+    if (nctx && A.ctxTarget + A.maxTokens + 2048 > nctx) {
+      log(`FATAL: ctx-target ${A.ctxTarget} + max-tokens ${A.maxTokens} + template slack exceeds per-slot ctx ${nctx} — lower --ctx-target or raise server -c`)
+      process.exit(1)
+    }
+    const cal = await calibrateTokenizer()
+    const chars = Math.round(A.ctxTarget * cal.charsPerToken)
+    PREFIX = buildFillerChars(chars)
+    const estTok = Math.round(PREFIX.length / cal.charsPerToken)
+    AGENT_META = { ctxTarget: A.ctxTarget, charsPerToken: Number(f2(cal.charsPerToken)), fillerChars: PREFIX.length, estFillerTok: estTok, calProbeTok: cal.sampleTok }
+    log(`agent: calibration ${cal.sampleTok}-tok probe -> ${f2(cal.charsPerToken)} chars/tok; filler ${PREFIX.length} chars ≈ ${estTok} tok`)
+    await primePrefixCache(env.server.totalSlots ?? A.parallel)
+  }
+
   log(`sweep c=[${A.concurrency.join(', ')}] rounds=${A.rounds} warmup=${A.warmup} max_tokens=${A.maxTokens} model=${A.model} url=${A.url}`)
 
   const results = []
@@ -550,9 +799,10 @@ async function main() {
 
   const out = {
     meta: {
-      tool: 'bench-parallel.js v2.2', mode: A.mode,
+      tool: 'bench-parallel.js v2.4', mode: A.mode,
+      agent: AGENT_META,
       started: new Date().toISOString(), durationS: f2((performance.now() - t0) / 1000),
-      url: A.url, model: A.model, maxTokens: A.maxTokens, temperature: A.temperature,
+      url: A.url, host: serverHostLabel(), model: A.model, maxTokens: A.maxTokens, temperature: A.temperature,
       rounds: A.rounds, warmup: A.warmup,
       env,
       ggufBytes: A.ggufBytes || null, cards: A.cards, busGbps: A.busGbps || null,
@@ -562,14 +812,19 @@ async function main() {
   }
 
   // Dump next to the leaderboard (results/ is gitignored except the two tracked files).
-  // Name after the alias — stable and meaningful on any box, unlike a symlink hop name.
+  // Name after the server host + alias — collisions across boxes are impossible
+  // even when every box dumps into one directory, unlike a symlink hop name.
+  const host = serverHostLabel()
   const nameBase = (A.alias || A.model || 'model').replace(/[^\w.-]/g, '_')
-  const outPath = A.out || path.join(RESULTS_DIR, `bench-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${nameBase}.json`)
+  const outPath = A.out || path.join(RESULTS_DIR, `bench-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${host}-${nameBase}.json`)
   mkdirSync(path.dirname(outPath), { recursive: true })
   writeFileSync(outPath, JSON.stringify(out, null, 2))
   log(`full run data -> ${outPath}`)
 
-  if (A.hardware) {
+  if (A.hardware && A.mode === 'agent') {
+    log('leaderboard: SKIPPED — agent-mode legs measure decode-at-depth, not comparable to short-ctx rows; use --mode full for leaderboard entries')
+  }
+  if (A.hardware && A.mode !== 'agent') {
     const perf = require(path.join(__dirname, '..', 'lib', 'perf'))
     const entry = perf.buildPerfEntry(out, { hardware: A.hardware, alias: A.alias || A.model })
     if (entry) {

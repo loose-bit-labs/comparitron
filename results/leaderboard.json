@@ -552,5 +552,86 @@
     "c2Tps": 27,
     "c4Tps": 43,
     "notes": "c=8 leg contaminated (orchestrating session) - excluded by per-leg gate"
+  },
+  {
+    "model": "qwen3.8:flash-next-q2_k_xl",
+    "hardware": "v620x2",
+    "lastTested": "2026-09-02",
+    "perf": {
+      "tool": "bench-parallel.js v2.2",
+      "started": "2026-09-02T18:48:37.739Z",
+      "ggufBytes": 10946624,
+      "cards": 2,
+      "busGbps": null,
+      "gpuLayers": 66,
+      "ctxSize": 524288,
+      "serverParallel": 2,
+      "flashAttn": "1",
+      "cacheTypeK": "q4_0",
+      "cacheTypeV": "q4_0",
+      "specType": "none",
+      "achievedGBsPerCard": 0.17,
+      "legs": [
+        {
+          "concurrency": 1,
+          "aggTps": 31.36,
+          "perStreamTps": 707.1,
+          "ttftP50s": 12.44,
+          "ttftP95s": 32.65,
+          "itlP50ms": 30.31,
+          "itlP95ms": 36.93,
+          "itlP99ms": 50.02
+        },
+        {
+          "concurrency": 2,
+          "aggTps": 44.71,
+          "perStreamTps": 62.09,
+          "ttftP50s": 17.45,
+          "ttftP95s": 43.03,
+          "itlP50ms": 42.34,
+          "itlP95ms": 53.95,
+          "itlP99ms": 58.61
+        },
+        {
+          "concurrency": 4,
+          "aggTps": 48.19,
+          "perStreamTps": 40.28,
+          "ttftP50s": 58.28,
+          "ttftP95s": 70.24,
+          "itlP50ms": 39.46,
+          "itlP95ms": 45.97,
+          "itlP99ms": 63.48
+        },
+        {
+          "concurrency": 8,
+          "aggTps": 49.15,
+          "perStreamTps": 40.26,
+          "ttftP50s": 139.06,
+          "ttftP95s": 152.88,
+          "itlP50ms": 37.95,
+          "itlP95ms": 44.56,
+          "itlP99ms": 72.08
+        }
+      ],
+      "gpu": [
+        {
+          "name": "GPU[0]",
+          "utilMean": 43.055865921787706,
+          "powerMean": 66.50837988826815,
+          "tempP95": 48
+        },
+        {
+          "name": "GPU[1]",
+          "utilMean": 37.12849162011173,
+          "powerMean": 63.374301675977655,
+          "tempP95": 45
+        }
+      ]
+    },
+    "c1Tps": 31,
+    "c2Tps": 45,
+    "c4Tps": 48,
+    "c8Tps": 49,
+    "notes": "125B MoE UD-Q2_K_XL (78.9GB); -ngl 66 ctx512k parallel2 fa1 q4_0-KV — best of 4 configs 2026-09-02; per-token decode identical to -ngl 999 parallel1 (30ms ITL) but +43% aggregate at c2"
   }
 ]
