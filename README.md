@@ -177,6 +177,27 @@ node bin/import-bench.js path/to/bench-....json --hardware v620x2 --alias qwen3.
 
 Same schema and contamination gate as the live upsert (both go through `lib/perf.js`).
 
+## Quality gauntlet (external-arbiter bake-off)
+
+A second judging pathway, separate from the local peer-jury above: `bin/gauntlet-*` builds a task corpus from real session transcripts plus the `capabilities/` suites, has each candidate answer once, and scores pairwise with an **external, unconflicted arbiter** (TypeSafe System One) instead of a local model judging its own family. Design rationale and roster history: `docs/gauntlet-jury.md`.
+
+```bash
+# 1. build the corpus (real transcripts + optional classifier gate)
+node bin/gauntlet-corpus.mjs --root ~/.claude/projects
+node bin/gauntlet-harvest.sh <other-boxes-with-history>   # optional: widen the corpus
+node bin/gauntlet-merge.mjs --dir <artifacts-dir> --out gauntlet-tasks.json
+node bin/gauntlet-suite.mjs                                # append the repeatable capability-suite passage
+
+# 2. read/approve gauntlet-tasks.json by hand, THEN:
+node bin/gauntlet-run.sh                                   # each seat answers every approved task once
+node bin/gauntlet-judge.mjs                                # blind pairwise scoring, resumable
+node bin/gauntlet-analyze.mjs --dir <artifacts-dir>         # per-passage, conditioned, length-bias, time-axis report
+```
+
+**`bin/gauntlet-redact.mjs`** is the one chokepoint between raw transcripts and anything that leaves the box (classifier, arbiter) — it maps real hostnames/projects/IPs to stable anonymized tokens via a local map file (`gauntlet-redact.json`, gitignored, lives next to your corpus — not shipped in this repo). Human approval of the task list is a hard gate before anything crosses the wire; nothing here auto-sends.
+
+Doctrine: the arbiter judges only, never answers; local candidates never judge themselves or their own family; a classifier (local model or the arbiter) may pick the *test set*, but never scores answers.
+
 ## Results layout
 
 ```

@@ -11,3 +11,5 @@ results/*
 /.a
 /hi.json
 /docs/reports/*.txt
+gauntlet-redact.json
+gauntlet-tasks*.json
