@@ -163,6 +163,8 @@ node bin/bench-parallel.js --selftest
 
 Per leg it reports: aggregate + per-stream t/s, TTFT p50/p95, ITL p50/p95/p99, roofline (achieved GB/s per card vs `--bus-gbps`), in-flight saturation, and per-GPU util/occupancy/power/temperature. GPU sampling auto-detects `rocm-smi` (AMD) or `nvidia-smi` (NVIDIA) and degrades to a warning if neither exists.
 
+**Per-stream t/s semantics (v2.5).** `perStreamTps` is the pooled decode rate: Σdecode-tokens / Σdecode-time over rate-eligible requests only — never an average of per-request rates (which is unboundedly inflated by short decode windows: recorded artifacts of 707 t/s where the leg ran ~60). A request whose whole response arrived as one burst (no observable inter-token gap) is excluded from rate stats; if no request in a leg qualifies, `perStreamTps` is `null` — absent, never zero. ITL p50 measures median arrival gap; pooled measures average throughput — on jittery streams they differ, so read both.
+
 **Contamination gate.** A `/slots` canary samples at 1Hz and flags a leg `CONTAMINATED` if the server processes tasks the bench did not send (e.g. a live agent session sharing the endpoint). The leaderboard upsert is **per-leg**: only `clean` legs are written, and a dirty c=1 means no `c1Tps`. A contaminated number never reaches the board — re-run the leg in a quiet window instead.
 
 **Leaderboard schema.** Rows get flat per-concurrency scalars — `c1Tps`, `c2Tps`, `c4Tps`, `c8Tps` — one per clean leg (`c1Tps` is the solo-stream value comparable to the `tps`/`tps-vllm` rows), plus a `perf` block with the full per-leg percentile detail (TTFT/ITL p50–p99), roofline, and per-GPU stats.

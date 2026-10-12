@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// bench-parallel.js — llama-server load bench v2.4 (zero-dep, Node 18+, CJS)
+// bench-parallel.js — llama-server load bench v2.5 (zero-dep, Node 18+, CJS)
 //
 // Home of the load-bench engine (v2.1 features carried over from the original
 // 2×V620 Vulkan rig build; this is the shared, box-agnostic home for it now).
@@ -43,6 +43,8 @@
 //   node bin/bench-parallel.js --selftest
 
 const { performance } = require('node:perf_hooks')
+const http = require('node:http')
+const { Readable } = require('node:stream')
 const { execFile } = require('node:child_process')
 const { writeFileSync, realpathSync, statSync, mkdirSync, readFileSync, readdirSync } = require('node:fs')
 const path = require('node:path')
@@ -53,7 +55,7 @@ const RESULTS_DIR = path.join(__dirname, '..', 'results')
 // ---------- args ----------
 const argv = process.argv.slice(2)
 if (argv.includes('-h') || argv.includes('--help')) {
-  console.log(`bench-parallel.js v2.4 — llama-server load bench (zero-dep)
+  console.log(`bench-parallel.js v2.5 — llama-server load bench (zero-dep)
 
 USAGE
   node bin/bench-parallel.js [flags]
@@ -235,6 +237,13 @@ async function primePrefixCache(totalSlots) {
   const n = Math.min(Math.max(1, totalSlots || 1), Math.max(...A.concurrency))
   log(`agent: priming prefix cache on ${n} slot(s) @ ~${A.ctxTarget} tok — this pays pp ONCE per slot (minutes), keep the server quiet`)
   const t = performance.now()
+  // CONCURRENT — and only concurrent works for slot coverage (2026-09-10 forensics):
+  // the server's LCP slot chooser folds any prime that arrives AFTER slot X cached a
+  // similar prefix onto slot X (sequential prime: prime1 hit slot0 via LCP 0.996, slot1
+  // never primed — logged). Fired together, each prime dequeues onto a fresh empty slot
+  // and every slot caches the prefix exactly once. The run-1 death was NOT prime
+  // concurrency — it was undici's 300 s headersTimeout + same-connection request
+  // pipelining; with node:http each prime owns its own socket, the server saw both at once.
   const recs = await Promise.all(Array.from({ length: n }, (_, i) =>
     sendChat(90_000 + i, `Priming marker ${i}: reply with the single word prime${i}.`, 0,
       { prefix: PREFIX, maxTokens: 8, timeoutMs: 5_400_000 })))
@@ -268,6 +277,39 @@ class Pool {
   }
 }
 
+// ---------- transport: node:http, NOT fetch ----------
+// undici (the fetch inside Node — v26 here) enforces a 300 s headersTimeout that CANNOT be
+// raised through fetch init options (verified empirically 2026-09-10: options ignored,
+// default fires at 300.8 s with UND_ERR_HEADERS_TIMEOUT). pp-heavy requests — agent-mode
+// prime and cache-miss measured rounds — see response headers only when generation starts,
+// and pipelined keep-alive connections queue the second request behind the first anyway.
+// The first campaign run died exactly this way (2026-09-10 00:19, prime #90001 at 300.75 s).
+// node:http with explicit zero timeouts + separate sockets is the only reliable client.
+// keepAlive OFF on purpose: cpp-httplib idle-closes connections between requests and a
+// pooled half-dead socket produced `socket hang up` on the first measured request (smoke
+// #3). Fresh socket per request costs one localhost TCP handshake — nothing else cares.
+const POOL = new http.Agent({ keepAlive: false, maxSockets: 8 })
+function httpPost(urlStr, bodyStr, signal) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr)
+    const req = http.request({
+      agent: POOL,
+      hostname: u.hostname, port: u.port || 80, path: u.pathname + u.search, method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(bodyStr) },
+      headersTimeout: 0, requestTimeout: 0,
+    }, resolve)
+    req.setTimeout(0)
+    req.on('error', reject)
+    if (signal) signal.addEventListener('abort', () => req.destroy(new Error('client timeout (aborted)')), { once: true })
+    req.end(bodyStr)
+  })
+}
+async function streamText(res) {
+  const parts = []
+  for await (const c of res) parts.push(c)
+  return Buffer.concat(parts).toString('utf8')
+}
+
 // ---------- one streamed chat completion ----------
 // opts.prefix: system-message filler carried alongside the prompt (agent mode) —
 // every request shares it so the server's prefix cache hits and decode runs at depth.
@@ -281,24 +323,19 @@ async function sendChat(id, prompt, queuedMs, opts = {}) {
     ? [{ role: 'system', content: opts.prefix }, { role: 'user', content: prompt }]
     : [{ role: 'user', content: prompt }]
   try {
-    const res = await fetch(A.url, {
-      method: 'POST',
-      signal: ac.signal,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: A.model,
-        messages,
-        max_tokens: maxTokens,
-        temperature: A.temperature,
-        stream: true,
-        stream_options: { include_usage: true },
-      }),
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`HTTP ${res.status} ${body.slice(0, 200)}`)
+    const res = await httpPost(A.url, JSON.stringify({
+      model: A.model,
+      messages,
+      max_tokens: maxTokens,
+      temperature: A.temperature,
+      stream: true,
+      stream_options: { include_usage: true },
+    }), ac.signal)
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      const body = await streamText(res).catch(() => '')
+      throw new Error(`HTTP ${res.statusCode} ${body.slice(0, 200)}`)
     }
-    const reader = res.body.getReader()
+    const reader = Readable.toWeb(res).getReader()   // Node 26 IncomingMessage has no .stream()
     const dec = new TextDecoder()
     let buf = '', ttft = null, steps = 0, usage = null, text = ''
     const itl = []
@@ -561,7 +598,21 @@ async function leg(C, c1Decode, totalSlots) {
   const aggTps = totalTokens / wallS
   const itlAll = ok.flatMap((r) => r.itlMs)
   const ttftAll = ok.map((r) => r.ttftMs)
-  const perStream = ok.length ? ok.reduce((a, r) => a + r.tpsDecode, 0) / ok.length : 0
+  // v2.5 POOLED RATE: Σdecode-tokens / Σdecode-time (token-weighted), over
+  // rate-eligible requests only. Two recorded failure modes fixed at once:
+  // 1) the old code averaged per-request rates arithmetically — a request with a
+  //    short decode window is a huge per-request rate and dominates the mean
+  //    unbounded (recorded: perStream 707.1 vs pooled ~60 on the same leg).
+  // 2) whole-response buffered arrivals: ttft≈totalMs, ≤1 streamed delta, no
+  //    observable inter-token gap — decode was never measurable for that request
+  //    (its tokens arrived as one burst). Such requests are excluded from the
+  //    rate stats entirely (they still count toward aggTps and token totals).
+  const rateReqs = ok.filter((r) => (r.itlMs?.length ?? 0) >= 1)
+  const decTokSum = rateReqs.reduce((a, r) => a + r.tokens, 0)
+  const decMsSum = rateReqs.reduce((a, r) => a + (r.totalMs - r.ttftMs), 0)
+  // null = decode rate was never measurable this leg (all-burst responses) —
+  // honest absence beats a fabricated zero.
+  const perStream = rateReqs.length && decMsSum > 0 ? decTokSum / (decMsSum / 1000) : null
   const latAll = ok.map((r) => r.totalMs / 1000)
   const ptArr = ok.map((r) => r.promptTok).filter((x) => x != null)
   let hSum = 0, pSum = 0
@@ -571,7 +622,7 @@ async function leg(C, c1Decode, totalSlots) {
   const summary = {
     concurrency: C, requests: total, okRequests: ok.length, failed: recs.length - ok.length,
     wallS: f2(wallS), totalTokens,
-    aggTps: f2(aggTps), perStreamTps: f2(perStream),
+    aggTps: f2(aggTps), perStreamTps: perStream === null ? null : f2(perStream),
     effVsC1: C === 1 ? '100% (baseline)' : (c1Decode ? f2((perStream / c1Decode) * 100) + '%' : 'n/a (no c=1 in this run)'),
     ttftP50s: f2(pct(ttftAll, 50) / 1000), ttftP95s: f2(pct(ttftAll, 95) / 1000),
     ctxTokMean: ptArr.length ? Math.round(ptArr.reduce((a, b) => a + b, 0) / ptArr.length) : null,
@@ -587,7 +638,7 @@ async function leg(C, c1Decode, totalSlots) {
   }
 
   console.log('-'.repeat(78))
-  console.log(`c=${C} | wall ${summary.wallS}s | ${totalTokens} tok | agg ${summary.aggTps} t/s | per-stream ${summary.perStreamTps} t/s | eff ${summary.effVsC1}`)
+  console.log(`c=${C} | wall ${summary.wallS}s | ${totalTokens} tok | agg ${summary.aggTps} t/s | per-stream ${summary.perStreamTps ?? 'n/a (unmeasurable)'} t/s | eff ${summary.effVsC1}`)
   console.log(`     TTFT p50/p95 ${summary.ttftP50s}/${summary.ttftP95s}s | ITL p50/p95/p99 ${summary.itlP50ms}/${summary.itlP95ms}/${summary.itlP99ms}ms | avg req ${summary.avgLatS}s`)
   if (summary.ctxTokMean != null) console.log(`     ctx depth p50/max ${summary.ctxTokP50}/${summary.ctxTokMax} tok (mean ${summary.ctxTokMean}) | prefix-cache hit ${summary.cacheHitPct ?? 'n/a'}`)
   console.log(`     roofline: ${summary.achievedGBsPerCard} GB/s per card (${summary.busPct} of bus) | in-flight peak ${tlSum.peakInFlight ?? '?'} (saturated ${tlSum.saturatedFrac ? f2(tlSum.saturatedFrac * 100) + '%' : '?'}, client queue peak ${tlSum.peakClientQueue ?? '?'})`)
@@ -745,7 +796,7 @@ function serverHostLabel() {
 async function main() {
   const t0 = performance.now()
   const { env, props } = await probeEnv()
-  log(`bench-parallel v2.4 — node ${process.version} — mode=${A.mode}`)
+  log(`bench-parallel v2.5 — node ${process.version} — mode=${A.mode}`)
   log(`env: ${env.server.alias ?? A.model} [${env.server.ftype ?? '?'}] ${env.server.modelPath ?? env.modelResolved ?? A.modelPath} (${A.ggufBytes ? (A.ggufBytes / 1e9).toFixed(1) + ' GB' : '? GB'}), slots=${env.server.totalSlots ?? A.parallel ?? '?'}, build=${env.server.build ?? '?'}, samp=t${env.server.sampling?.temperature} p${env.server.sampling?.top_p} k${env.server.sampling?.top_k}`)
   const sp = env.serverProc
   if (sp && sp.gpuLayers != null) {
@@ -799,7 +850,7 @@ async function main() {
 
   const out = {
     meta: {
-      tool: 'bench-parallel.js v2.4', mode: A.mode,
+      tool: 'bench-parallel.js v2.5', mode: A.mode,
       agent: AGENT_META,
       started: new Date().toISOString(), durationS: f2((performance.now() - t0) / 1000),
       url: A.url, host: serverHostLabel(), model: A.model, maxTokens: A.maxTokens, temperature: A.temperature,
